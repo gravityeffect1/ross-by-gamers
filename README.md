@@ -1,4 +1,4 @@
-![Gameplay](assets/ss2.png)
+![Gameplay](assets/ss3.png)
 
 ### *An interactive pixel companion to Ross Histology*
 
