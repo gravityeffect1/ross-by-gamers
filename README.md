@@ -84,7 +84,7 @@ Developed by a medical student, for medical students.
 
 <div align="center">
 
-![Gameplay — World 3 Spleen]()
+![Gameplay — World 3 Spleen](ross-by-gamers/gameplay-world3.gif)
 
 </div>
 
