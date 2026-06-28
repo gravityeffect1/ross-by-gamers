@@ -81,6 +81,13 @@ Developed by a medical student, for medical students.
 
 </details>
 
+
+<div align="center">
+
+![Gameplay — World 3 Spleen]()
+
+</div>
+
 ---
 
 ## Controls
