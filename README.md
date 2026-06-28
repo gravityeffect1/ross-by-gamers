@@ -9,7 +9,7 @@
 ╚═╝  ╚═╝╚═╝╚══════╝   ╚═╝    ╚═════╝
         B Y   G A M E R S
 ```
-![World 3 — The Spleen](assets/gameplay-world3.gif)
+![Gameplay](assets/ss1.png)
 
 ### *An interactive pixel companion to Ross Histology*
 
