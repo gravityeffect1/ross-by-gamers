@@ -9,6 +9,7 @@
 ╚═╝  ╚═╝╚═╝╚══════╝   ╚═╝    ╚═════╝
         B Y   G A M E R S
 ```
+![World 3 — The Spleen](assets/gameplay-world3.gif)
 
 ### *An interactive pixel companion to Ross Histology*
 
@@ -80,9 +81,6 @@ Developed by a medical student, for medical students.
  **Quest:** Collect 3 senescent RBCs → deliver to Red Pulp Macrophage → unlock splenic vein exit + ATP bonus
 
 </details>
-
-
-![World 3 — The Spleen](assets/gameplay-world3.gif)
 
 ---
 
