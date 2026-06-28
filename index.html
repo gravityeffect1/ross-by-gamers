@@ -1,0 +1,2287 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Histology Made by Gamers — Chapter II: The Lymphatic System</title>
+  <meta name="description" content="A pixel platformer where you play as a pathogen navigating the bloodstream, lymph node, and spleen. Educational immunology and histology game." />
+  <meta name="author" content="Sara Sovix" />
+  <meta property="og:title" content="Histology Made by Gamers — A Pathogen's Tour of the Body" />
+  <meta property="og:description" content="Play as a pathogen and learn immunology by exploring the bloodstream, lymph node, and spleen in this educational pixel platformer." />
+  <meta property="og:type" content="website" />
+  <meta name="theme-color" content="#0a040e" />
+  <style>html, body { margin: 0; background: #0a040e; }</style>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%230a040e'/><circle cx='16' cy='16' r='9' fill='%239fe06a'/><circle cx='13' cy='13' r='3' fill='%23c8f0a0'/><circle cx='20' cy='11' r='2' fill='%23c8f0a0'/></svg>" />
+  <!-- CDN load-failure guard: show friendly error if any script fails to fetch -->
+  <script>
+    window.__cdnErr = false;
+    window.addEventListener('error', function(e) {
+      if (window.__cdnErr) return;
+      if (e.target && (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK')) {
+        window.__cdnErr = true;
+        document.getElementById('root').innerHTML =
+          '<div style="font-family:monospace;color:#e8c0cf;padding:48px;text-align:center;background:#0a040e;min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;box-sizing:border-box">' +
+          '<div style="font-size:20px;color:#e8556a;margin-bottom:16px">&#9888; LOADING ERROR</div>' +
+          '<div style="font-size:13px;line-height:2;max-width:440px">A required script could not be loaded from CDN.<br>Check your internet connection and refresh the page.<br><br>' +
+          '<span style="color:rgba(200,180,210,0.5);font-size:11px">' + (e.target.src || '') + '</span></div></div>';
+      }
+    }, true);
+  </script>
+  <!-- React + ReactDOM (production, pinned) + Babel standalone for JSX -->
+  <script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/@babel/standalone@7.26.5/babel.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel" data-presets="react">
+const { useEffect, useRef, useState } = React;
+
+/* =====================================================================
+  Histology made by Gamers  v2  —  A Pathogen's Tour of the Body
+   - Game world renders to a 320x180 buffer, upscaled nearest-neighbour.
+   - Made for those currently stuck in Ross hell.
+   ===================================================================== */
+
+const VW = 320;
+const VH = 180;
+const S = 4;           
+const TW = VW * S;
+const TH = VH * S;
+const TILE = 16;
+const ROWS = 11;
+
+/* ---------- WORLDS --------------------------------------------------
+   World 1: a journey through the vessels & loose connective tissue,
+            ending at the wall of an afferent lymphatic -> lymph node.
+   World 2: inside the lymph node itself - sinus, cortex, paracortex,
+            medulla, out through the efferent lymphatic.
+   ===================================================================== */
+const COLS1 = 124;
+const COLS2 = 168;
+function colsFor(w) { return w === 2 ? COLS2 : COLS1; }
+function worldWFor(w) { return colsFor(w) * TILE; }
+
+const BIOMES1 = [
+  { name: "THE BLOODSTREAM", end: 44, sky: ["#3c0d17", "#7e1f2d"], tile: ["#7c2230", "#a3384a", "#511420", "#c2596a"], hair: "#d4566a", accent: "#9b2c3a" },
+  { name: "CONNECTIVE TISSUE", end: 86, sky: ["#45102d", "#902f58"], tile: ["#a8466a", "#c86d8d", "#76304a", "#e088a6"], hair: "#e87fa1", accent: "#c25c84" },
+  { name: "AFFERENT LYMPHATIC VESSEL", end: 999, sky: ["#1b1538", "#3f3170"], tile: ["#5c4f8c", "#7c6fb6", "#3d3360", "#a394e0"], hair: "#9f8fe0", accent: "#6a5aa0" },
+];
+
+/* World 2 — the interior of a lymph node, drawn as 5 traversable zones
+   that mirror the gross anatomy: capsule/sinus -> superficial cortex
+   (follicles) -> deep cortex (paracortex/HEVs) -> medulla -> efferent
+   lymphatic. */
+const BIOMES2 = [
+  { name: "SUBCAPSULAR SINUS", end: 28, sky: ["#15233a", "#2d4566"], tile: ["#3f5e86", "#5f84ad", "#27405e", "#86acd4"], hair: "#9cc4ec", accent: "#4f7aa8", mesh: "#cfe6ff" },
+  { name: "SUPERFICIAL CORTEX \u2014 FOLLICLES", end: 70, sky: ["#1d1a3c", "#3a3373"], tile: ["#564a92", "#7568bd", "#3a3170", "#a298e0"], hair: "#c6bdf2", accent: "#6a5cb0", mesh: "#e3dbff" },
+  { name: "DEEP CORTEX \u2014 PARACORTEX (HEV)", end: 108, sky: ["#241638", "#4a2a66"], tile: ["#6b3f8a", "#8f5cb4", "#4a2c66", "#b985dd"], hair: "#e0b4ff", accent: "#8a4fb0", mesh: "#f3d6ff" },
+  { name: "MEDULLA \u2014 MEDULLARY CORDS", end: 148, sky: ["#33182a", "#6a2c4a"], tile: ["#933a5e", "#bd5e85", "#6a2843", "#e088ad"], hair: "#ffb8d4", accent: "#a8466f", mesh: "#ffe0ee" },
+  { name: "EFFERENT LYMPHATIC VESSEL", end: 9999, sky: ["#16263c", "#2c4a6e"], tile: ["#3f5e86", "#5f84ad", "#27405e", "#9fd4e8"], hair: "#bfeeff", accent: "#4f7aa8", mesh: "#e6fbff" },
+];
+
+/* World 3 — the spleen, drawn as ONE TALL MAP (vertical traversal via
+   ladder-like reticular shafts) rather than a left-to-right strip. Zones
+   are stacked top-to-bottom, mirroring the real architecture: white pulp
+   (PALS + follicle) on top, then the marginal zone, then red pulp (cords
+   of Billroth, split into an "open" and a "closed" circulation route),
+   then venous sinusoids at the bottom. Zone lookup is by ROW, not column. */
+const COLS3 = 104;
+const ROWS3 = 22;
+const BIOMES3 = [
+  { name: "WHITE PULP \u2014 PALS & FOLLICLE", end: 8, sky: ["#1d1a3c", "#3a3373"], tile: ["#564a92", "#7568bd", "#3a3170", "#a298e0"], hair: "#c6bdf2", accent: "#6a5cb0", mesh: "#e3dbff" },
+  { name: "MARGINAL ZONE", end: 11, sky: ["#2a1c34", "#5a3a5e"], tile: ["#7a4f82", "#9c6fa6", "#522f5c", "#c191c8"], hair: "#e0b8e6", accent: "#8a5f92", mesh: "#f0dcf2" },
+  { name: "RED PULP \u2014 CORDS OF BILLROTH", end: 18, sky: ["#3a1620", "#74283a"], tile: ["#a8455a", "#cf6e80", "#7a2c3c", "#e89aa6"], hair: "#ffc2cc", accent: "#b8505f", mesh: "#ffd9dd" },
+  { name: "VENOUS SINUSOIDS", end: 9999, sky: ["#16263c", "#2c4a6e"], tile: ["#3f5e86", "#5f84ad", "#27405e", "#9fd4e8"], hair: "#bfeeff", accent: "#4f7aa8", mesh: "#e6fbff" },
+];
+const LADDER_SPEED = 1.4;
+
+function biomeAt(px, biomes) {
+  const list = biomes || BIOMES1;
+  const col = Math.floor(px / TILE);
+  return list.find((b) => col <= b.end) || list[list.length - 1];
+}
+function biomeAtRow(py, biomes) {
+  const row = Math.floor(py / TILE);
+  return biomes.find((b) => row <= b.end) || biomes[biomes.length - 1];
+}
+function zoneFor(world, px, py) {
+  return world.zoneAxis === "row" ? biomeAtRow(py, world.biomes) : biomeAt(px, world.biomes);
+}
+
+const GRAV = 0.30;
+const MOVE = 0.7;
+const AIR_MOVE = 0.55;
+const FRICTION = 0.80;
+const MAX_VX = 1.8;
+const MAX_FALL = 5.5;
+const JUMP_V = -5.6;
+const DJUMP_V = -5.0;
+const COYOTE = 11;     
+const BUFFER = 11;      
+
+function emptyGrid(w, h) { return Array.from({ length: h }, () => Array.from({ length: w }, () => ".")); }
+function setPx(g, c, r, ch) { if (r >= 0 && r < g.length && c >= 0 && c < g[0].length) g[r][c] = ch; }
+function buildBlob(w, h, rx, ry, body, dark, hi) {
+  const g = emptyGrid(w, h);
+  const cx = (w - 1) / 2, cy = (h - 1) / 2;
+  for (let r = 0; r < h; r++)
+    for (let c = 0; c < w; c++) {
+      const dx = (c - cx) / rx, dy = (r - cy) / ry, d = dx * dx + dy * dy;
+      if (d <= 1) {
+        let ch = body;
+        if (dy > 0.30) ch = dark;
+        if (dx < -0.05 && dy < -0.05 && d < 0.55) ch = hi;
+        g[r][c] = ch;
+      }
+    }
+  for (let r = 0; r < h; r++)
+    for (let c = 0; c < w; c++) {
+      if (g[r][c] === ".") continue;
+      const nb = [[c - 1, r], [c + 1, r], [c, r - 1], [c, r + 1]];
+      if (nb.some(([nc, nr]) => nc < 0 || nr < 0 || nc >= w || nr >= h || g[nr][nc] === ".")) {
+      
+      }
+    }
+  const out = g.map((row) => row.slice());
+  for (let r = 0; r < h; r++)
+    for (let c = 0; c < w; c++) {
+      if (g[r][c] === ".") continue;
+      const nb = [[c - 1, r], [c + 1, r], [c, r - 1], [c, r + 1]];
+      if (nb.some(([nc, nr]) => nc < 0 || nr < 0 || nc >= w || nr >= h || g[nr][nc] === ".")) out[r][c] = "O";
+    }
+  return out;
+}
+function makeSprite(grid, pal) {
+  const h = grid.length, w = grid[0].length;
+  const cv = document.createElement("canvas");
+  cv.width = w; cv.height = h;
+  const x = cv.getContext("2d");
+  for (let r = 0; r < h; r++)
+    for (let c = 0; c < w; c++) {
+      const ch = grid[r][c];
+      if (ch === ".") continue;
+      x.fillStyle = pal[ch] || "#f0f";
+      x.fillRect(c, r, 1, 1);
+    }
+  return { cv, w, h };
+}
+function drawSprite(ctx, spr, x, y, flip, sx = 1, sy = 1) {
+  const w = spr.w, h = spr.h, dw = w * sx, dh = h * sy;
+  const ox = Math.round(x + (w - dw) / 2);
+  const oy = Math.round(y + (h - dh)); 
+  ctx.save();
+  if (flip) { ctx.translate(ox + dw, oy); ctx.scale(-1, 1); ctx.drawImage(spr.cv, 0, 0, dw, dh); }
+  else ctx.drawImage(spr.cv, ox, oy, dw, dh);
+  ctx.restore();
+}
+
+
+const PATHO_PAL = {
+  O: "#1e3214", b: "#79c64e", d: "#4f9633", h: "#a9e873", H: "#d6ff9e",
+  c: "#46c7d6", C: "#a6f2fb", e: "#f2fde6", p: "#1e3214", s: "#ffffff", m: "#a23b4a",
+};
+function pathoFrame(spikePhase, foot, blink) {
+  const g = buildBlob(15, 14, 6.6, 5.7, "b", "d", "h");
+
+  setPx(g, 4, 2, "H"); setPx(g, 5, 2, "H"); setPx(g, 3, 3, "H");
+
+  const spikes = [[7, 0], [4, 1], [10, 1], [1, 5], [13, 5], [2, 9], [12, 9], [7, 13]];
+  spikes.forEach(([c, r], i) => { if ((i + spikePhase) % 2 === 0) { setPx(g, c, r, "c"); } });
+
+  if (blink) { [[4, 6], [5, 6], [9, 6], [10, 6]].forEach(([c, r]) => setPx(g, c, r, "O")); }
+  else {
+    [[4, 5], [5, 5], [4, 6], [5, 6]].forEach(([c, r]) => setPx(g, c, r, "e"));
+    [[9, 5], [10, 5], [9, 6], [10, 6]].forEach(([c, r]) => setPx(g, c, r, "e"));
+    setPx(g, 5, 6, "p"); setPx(g, 10, 6, "p");
+    setPx(g, 4, 5, "s"); setPx(g, 9, 5, "s");
+  }
+
+  setPx(g, 6, 9, "m"); setPx(g, 7, 9, "m"); setPx(g, 8, 9, "m"); setPx(g, 5, 8, "m"); setPx(g, 9, 8, "m");
+
+  if (foot === 0) { setPx(g, 5, 13, "O"); setPx(g, 9, 13, "O"); }
+  else if (foot === 1) { setPx(g, 4, 13, "O"); setPx(g, 8, 13, "O"); }
+  else { setPx(g, 6, 13, "O"); setPx(g, 10, 13, "O"); }
+  return g;
+}
+
+const NEUT_PAL = { O: "#5a4a25", b: "#f3e6b8", d: "#dcc88c", h: "#fdf6da", n: "#7a4fa0", N: "#9a6fc0", G: "#d49a52", e: "#352510", p: "#150f06" };
+function neutFrame(j) {
+  const g = buildBlob(20, 17, 8.4, 7.0, "b", "d", "h");
+  const lobes = [[8, 7], [11, 6], [10, 9], [7, 9]];
+  lobes.forEach(([c, r]) => {
+    for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++)
+      if (Math.abs(dr) + Math.abs(dc) <= 1) setPx(g, c + dc, r + dr, "n");
+    setPx(g, c, r, "N");
+  });
+  [[5, 5], [14, 9], [6, 12], [15, 6], [4, 9], [13, 12]].forEach(([c, r]) => setPx(g, c, r, "G"));
+  [[6, 6], [7, 6]].forEach(([c, r]) => setPx(g, c, r, "e"));
+  [[12, 6], [13, 6]].forEach(([c, r]) => setPx(g, c, r, "e"));
+  setPx(g, 7, 6, "p"); setPx(g, 12, 6, "p");
+  setPx(g, 6, 5, "O"); setPx(g, 13, 5, "O");
+  if (j) { setPx(g, 4, 8, "G"); }
+  return g;
+}
+
+
+const BCELL_PAL = { O: "#1f4a55", b: "#82d2e2", d: "#4fa8bc", h: "#c9f5fc", e: "#eafbff", p: "#143038", y: "#f2c14e" };
+function bcellGrid() {
+  const g = buildBlob(16, 15, 6.8, 6.0, "b", "d", "h");
+  [[5, 6], [6, 6]].forEach(([c, r]) => setPx(g, c, r, "e"));
+  [[9, 6], [10, 6]].forEach(([c, r]) => setPx(g, c, r, "e"));
+  setPx(g, 6, 6, "p"); setPx(g, 9, 6, "p");
+  [[5, 9], [6, 10], [7, 11], [8, 11], [9, 10], [10, 9]].forEach(([c, r]) => setPx(g, c, r, "O"));
+  setPx(g, 8, 0, "y"); setPx(g, 3, 3, "y"); setPx(g, 12, 3, "y");
+  return g;
+}
+
+
+const RETIC_PAL = { O: "#5a4470", b: "#cdb8ec", d: "#a48bd4", h: "#ece0ff", e: "#3a2a52", p: "#241a38", n: "#f4eaff" };
+function buildStellate(w, h, body, dark, hi, arm) {
+  const g = buildBlob(w, h, w * 0.26, h * 0.26, body, dark, hi);
+  const cx = (w - 1) / 2, cy = (h - 1) / 2;
+
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2 + 0.3;
+    const len = Math.max(w, h) * 0.62;
+    for (let t = 2; t < len; t += 1) {
+      const x = Math.round(cx + Math.cos(a) * t), y = Math.round(cy + Math.sin(a) * t * 0.92);
+      setPx(g, x, y, arm);
+      if (t % 3 === 0) setPx(g, x + (Math.cos(a) >= 0 ? 1 : -1), y, arm);
+    }
+  }
+  return g;
+}
+function reticularGrid() {
+  const g = buildStellate(20, 18, "b", "d", "h", "O");
+  const cx = 9, cy = 8;
+  setPx(g, cx, cy, "e"); setPx(g, cx + 1, cy, "e"); setPx(g, cx, cy + 1, "e");
+  setPx(g, cx - 1, cy - 1, "n"); setPx(g, cx + 2, cy - 1, "n");
+  return g;
+}
+
+const MZMAC_PAL = { O: "#5c3a28", b: "#d9a878", d: "#b07e50", h: "#f0d4ae", e: "#3a2418", p: "#241208", g: "#8a5a3a" };
+function mzMacGrid() {
+  const g = buildBlob(18, 16, 7.6, 6.8, "b", "d", "h");
+  [[5, 7], [11, 9], [8, 5], [13, 6]].forEach(([c, r]) => setPx(g, c, r, "g"));
+  [[6, 6], [7, 6]].forEach(([c, r]) => setPx(g, c, r, "e"));
+  [[10, 6], [11, 6]].forEach(([c, r]) => setPx(g, c, r, "e"));
+  setPx(g, 7, 6, "p"); setPx(g, 10, 6, "p");
+  return g;
+}
+
+const MZB_PAL = { O: "#5a4a1f", b: "#e8d28a", d: "#c8a84f", h: "#fff3c9", e: "#3a2e10", p: "#241a08", y: "#8ec84e" };
+
+const RPMAC_PAL = { O: "#6e2a1a", b: "#c97a52", d: "#9c4f30", h: "#f0bd96", e: "#3a1610", p: "#1c0a06", r: "#e8556a" };
+function rpMacGrid() {
+  const g = buildStellate(20, 18, "b", "d", "h", "O");
+  const cx = 9, cy = 8;
+  setPx(g, cx, cy, "r"); setPx(g, cx + 1, cy, "r");
+  setPx(g, cx - 1, cy + 1, "e"); setPx(g, cx + 2, cy - 1, "e");
+  return g;
+}
+
+
+function heartPath(ctx, cx, cy, s) {
+  ctx.beginPath();
+  ctx.moveTo(cx, cy + s * 0.3);
+  ctx.bezierCurveTo(cx - s, cy - s * 0.4, cx - s * 0.55, cy - s, cx, cy - s * 0.45);
+  ctx.bezierCurveTo(cx + s * 0.55, cy - s, cx + s, cy - s * 0.4, cx, cy + s * 0.3);
+  ctx.closePath();
+}
+
+function drawGlow(ctx, x, y, r, color, a) {
+  ctx.save();
+  ctx.globalAlpha = a;
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+  g.addColorStop(0, color); g.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+function drawFlagellum(ctx, x, y, facing, t) {
+  ctx.strokeStyle = "#46c7d6";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  const dir = -facing;
+  for (let i = 0; i <= 8; i++) {
+    const px = x + dir * i;
+    const py = y + Math.sin(t * 8 + i * 0.8) * (i * 0.35);
+    i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+}
+function drawMacrophage(ctx, x, y, r, t, facing) {
+  drawGlow(ctx, x, y, r + 8, "rgba(150,120,200,0.5)", 0.5);
+  ctx.save(); ctx.translate(x, y);
+  ctx.fillStyle = "#9a86c4";
+  const arms = 11;
+  for (let i = 0; i < arms; i++) {
+    const a = (i / arms) * Math.PI * 2 + t * 0.5;
+    const rr = r + 2 + Math.sin(t * 2.2 + i) * 2.2;
+    ctx.beginPath(); ctx.arc(Math.cos(a) * rr, Math.sin(a) * rr * 0.82, 2.4, 0, Math.PI * 2); ctx.fill();
+  }
+  const bg = ctx.createRadialGradient(-r * 0.3, -r * 0.3, 1, 0, 0, r);
+  bg.addColorStop(0, "#cdbce8"); bg.addColorStop(1, "#a892ce");
+  ctx.fillStyle = bg;
+  ctx.beginPath(); ctx.ellipse(0, 0, r, r * 0.85, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#8f7bb5";
+  ctx.beginPath(); ctx.ellipse(0, r * 0.32, r * 0.9, r * 0.48, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.lineWidth = 1; ctx.strokeStyle = "#3a2f52";
+  ctx.beginPath(); ctx.ellipse(0, 0, r, r * 0.85, 0, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = "#6b4f8f";
+  ctx.beginPath(); ctx.ellipse(r * 0.22, r * 0.18, r * 0.4, r * 0.3, 0, 0, Math.PI * 2); ctx.fill();
+  const fx = facing >= 0 ? 1 : -1;
+  ctx.fillStyle = "#eafbe0";
+  ctx.fillRect(fx * 2 - 4, -r * 0.42, 3, 3);
+  ctx.fillRect(fx * 2 + 2, -r * 0.42, 3, 3);
+  ctx.fillStyle = "#241a2e";
+  ctx.fillRect(fx * 2 - 3 + (fx > 0 ? 1 : 0), -r * 0.42 + 1, 1, 1);
+  ctx.fillRect(fx * 2 + 3 + (fx > 0 ? 1 : 0), -r * 0.42 + 1, 1, 1);
+  const mo = 1 + Math.abs(Math.sin(t * 4)) * 2;
+  ctx.fillStyle = "#3a1622";
+  ctx.beginPath(); ctx.ellipse(0, r * 0.14, 3, mo, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+function drawTcell(ctx, x, y, t, charge) {
+  drawGlow(ctx, x, y, 16, "rgba(90,150,230,0.5)", 0.45 + charge * 0.4);
+  ctx.save(); ctx.translate(x, y);
+
+  ctx.strokeStyle = "#3a5a9a"; ctx.lineWidth = 1;
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a) * 9, Math.sin(a) * 8);
+    ctx.lineTo(Math.cos(a) * 12, Math.sin(a) * 11);
+    ctx.stroke();
+  }
+  const bg = ctx.createRadialGradient(-3, -3, 1, 0, 0, 11);
+  bg.addColorStop(0, "#9fc0f0"); bg.addColorStop(1, "#5e84c4");
+  ctx.fillStyle = bg;
+  ctx.beginPath(); ctx.ellipse(0, 0, 10, 9, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "#2a3f70"; ctx.beginPath(); ctx.ellipse(0, 0, 10, 9, 0, 0, Math.PI * 2); ctx.stroke();
+ 
+  ctx.fillStyle = "#34508c";
+  ctx.beginPath(); ctx.arc(1, 1, 5, 0, Math.PI * 2); ctx.fill();
+
+  ctx.fillStyle = "#eafbff"; ctx.fillRect(-4, -4, 2, 2); ctx.fillRect(2, -4, 2, 2);
+  ctx.fillStyle = "#1a2a50"; ctx.fillRect(-3, -4, 1, 1); ctx.fillRect(3, -4, 1, 1);
+  ctx.restore();
+}
+function drawCytokine(ctx, x, y, t) {
+  drawGlow(ctx, x, y, 7, "rgba(230,120,200,0.7)", 0.6);
+  ctx.fillStyle = "#f06bc0";
+  const p = 2.5 + Math.sin(t * 12) * 0.8;
+  ctx.beginPath(); ctx.arc(x, y, p, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#ffd0ef"; ctx.fillRect(Math.round(x) - 1, Math.round(y) - 1, 1, 1);
+}
+function drawAntibody(ctx, x, y, t) {
+  ctx.save(); ctx.translate(Math.round(x), Math.round(y)); ctx.rotate(Math.sin(t * 2) * 0.3);
+  ctx.fillStyle = "#f2c14e";
+  ctx.fillRect(-1, 0, 2, 5); ctx.fillRect(-4, -3, 2, 4); ctx.fillRect(2, -3, 2, 4); ctx.fillRect(-4, -3, 8, 2);
+  ctx.fillStyle = "#a87a1e"; ctx.fillRect(-1, 4, 2, 1);
+  ctx.restore();
+}
+function drawOrb(ctx, x, y, t) {
+  const pulse = 1 + Math.sin(t * 4) * 0.16;
+  ctx.save(); ctx.translate(Math.round(x), Math.round(y + Math.sin(t * 2) * 1.4));
+  drawGlow(ctx, 0, 0, 7 * pulse, "rgba(255,210,90,0.8)", 0.6);
+  ctx.fillStyle = "#ffd34d";
+  ctx.beginPath(); ctx.moveTo(0, -3.5); ctx.lineTo(3, 0); ctx.lineTo(0, 3.5); ctx.lineTo(-3, 0); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = "#fff4c0"; ctx.fillRect(-1, -1, 1, 1);
+  ctx.restore();
+}
+function drawPortal(ctx, x, y, t, glow, fillA, fillB, ring) {
+  drawGlow(ctx, x, y, 26, glow, 0.5 + Math.sin(t * 2) * 0.12);
+  ctx.save(); ctx.translate(x, y);
+  ctx.fillStyle = fillA;
+  ctx.beginPath();
+  for (let i = 0; i <= 26; i++) {
+    const a = (i / 26) * Math.PI * 2, rr = 14 + Math.sin(a * 5 + t * 2) * 1.6;
+    const px = Math.cos(a) * rr, py = Math.sin(a) * rr * 0.92;
+    i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+  }
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = ring; ctx.lineWidth = 1; ctx.stroke();
+  ctx.fillStyle = fillB; ctx.beginPath(); ctx.arc(2, 1, 5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "rgba(20,12,30,0.5)"; ctx.beginPath(); ctx.arc(3, 1, 2, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
+
+function hash2(a, b) {
+  let h = (a * 374761393 + b * 668265263) | 0;
+  h = (h ^ (h >>> 13)); h = Math.imul(h, 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+
+function drawFDC(ctx, x, y, t, color, delivered) {
+  drawGlow(ctx, x, y, 22, delivered ? color : "rgba(230,224,255,0.32)", delivered ? 0.6 : 0.32);
+  ctx.save(); ctx.translate(x, y);
+  ctx.strokeStyle = "#e6dcc8"; ctx.lineWidth = 1;
+  for (let i = 0; i < 7; i++) {
+    const a = (i / 7) * Math.PI * 2 + Math.sin(t * 0.6) * 0.15;
+    const len = 13 + Math.sin(t * 1.3 + i) * 2;
+    const mx = Math.cos(a) * len * 0.55, my = Math.sin(a) * len * 0.55 * 0.85;
+    const ex = Math.cos(a + 0.25) * len, ey = Math.sin(a + 0.25) * len * 0.85;
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(mx, my); ctx.lineTo(ex, ey); ctx.stroke();
+    const bx = mx + Math.cos(a - 0.6) * 5, by = my + Math.sin(a - 0.6) * 5 * 0.85;
+    ctx.beginPath(); ctx.moveTo(mx, my); ctx.lineTo(bx, by); ctx.stroke();
+    ctx.fillStyle = delivered ? color : "#cfc6e6";
+    ctx.beginPath(); ctx.arc(ex, ey, 1.5, 0, Math.PI * 2); ctx.fill();
+  }
+  const bg = ctx.createRadialGradient(-2, -2, 1, 0, 0, 8);
+  bg.addColorStop(0, "#fff7e6"); bg.addColorStop(1, "#cdbf9e");
+  ctx.fillStyle = bg;
+  ctx.beginPath(); ctx.ellipse(0, 0, 8, 7, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "#9c8a66"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.ellipse(0, 0, 8, 7, 0, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = "#cdbf9e";
+  ctx.beginPath(); ctx.ellipse(1, 0, 4, 3.2, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = color; ctx.globalAlpha = delivered ? 1 : 0.55;
+  ctx.beginPath(); ctx.arc(1, 0, 1.7, 0, Math.PI * 2); ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+function drawPlasmaCell(ctx, x, y, t, facing) {
+  drawGlow(ctx, x, y, 16, "rgba(140,120,230,0.35)", 0.32);
+  ctx.save(); ctx.translate(x, y);
+  const bg = ctx.createRadialGradient(-2, -2, 1, 0, 0, 11);
+  bg.addColorStop(0, "#8478d6"); bg.addColorStop(1, "#4a3f8c");
+  ctx.fillStyle = bg;
+  ctx.beginPath(); ctx.ellipse(0, 0, 10, 9, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "#2e2660"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.ellipse(0, 0, 10, 9, 0, 0, Math.PI * 2); ctx.stroke();
+  const ex = facing >= 0 ? 3 : -3;
+  ctx.fillStyle = "rgba(232,226,255,0.55)";
+  ctx.beginPath(); ctx.arc(ex, 2, 3.6, 0, Math.PI * 2); ctx.fill();
+  ctx.save(); ctx.translate(-ex * 0.6, -1);
+  ctx.fillStyle = "#241c4e"; ctx.beginPath(); ctx.arc(0, 0, 4.6, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "#6a5cc0"; ctx.lineWidth = 0.7;
+  for (let i = 0; i < 8; i++) { const a = (i / 8) * Math.PI * 2 + t * 0.4; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(a) * 4.4, Math.sin(a) * 4.4); ctx.stroke(); }
+  ctx.restore();
+  ctx.restore();
+}
+
+function drawHEV(ctx, x, yTop, h, t, active) {
+  drawGlow(ctx, x + 4, yTop + h / 2, 16, "rgba(190,150,255,0.5)", 0.35 + Math.sin(t * 3) * 0.12);
+  ctx.save();
+  const grad = ctx.createLinearGradient(x, yTop, x + 8, yTop + h);
+  grad.addColorStop(0, "#d8bcff"); grad.addColorStop(1, "#8a5fe0");
+  ctx.fillStyle = grad; ctx.fillRect(x, yTop, 8, h);
+  ctx.fillStyle = "#a47ef0";
+  for (let yy = yTop + 1; yy < yTop + h - 1; yy += 4) ctx.fillRect(x + 1, yy, 6, 2);
+  ctx.strokeStyle = active ? "#fff4c0" : "#5a3aa0"; ctx.lineWidth = 1;
+  ctx.strokeRect(x + 0.5, yTop + 0.5, 7, h - 1);
+  // small lymphocyte squeezing through, for flavour
+  ctx.fillStyle = "#eafbff"; ctx.beginPath(); ctx.arc(x + 4, yTop + h * 0.5 + Math.sin(t * 2) * h * 0.3, 2, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
+function drawHEVGate(ctx, x, yTop, h, t, open) {
+  ctx.save();
+  if (!open) {
+    // Closed: solid red barrier with diagonal hatching — impassable
+    drawGlow(ctx, x + TILE / 2, yTop + h / 2, 18, "rgba(255,120,120,0.5)", 0.35 + Math.sin(t * 3) * 0.12);
+    const grad = ctx.createLinearGradient(x, yTop, x + TILE, yTop + h);
+    grad.addColorStop(0, "#ffd0d0"); grad.addColorStop(1, "#c4504f");
+    ctx.fillStyle = grad; ctx.fillRect(x, yTop, TILE, h);
+    ctx.save(); ctx.beginPath(); ctx.rect(x, yTop, TILE, h); ctx.clip();
+    ctx.strokeStyle = "rgba(60,10,10,0.5)"; ctx.lineWidth = 3;
+    for (let i = -h; i < TILE + h; i += 6) { ctx.beginPath(); ctx.moveTo(x + i, yTop + h); ctx.lineTo(x + i + h, yTop); ctx.stroke(); }
+    ctx.restore();
+    ctx.strokeStyle = "#7a2c2c"; ctx.lineWidth = 1;
+    ctx.strokeRect(x + 0.5, yTop + 0.5, TILE - 1, h - 1);
+  } else {
+    // Open: thin glowing side pillars only — centre is clear and traversable
+    drawGlow(ctx, x + TILE / 2, yTop + h / 2, 14, "rgba(180,255,160,0.45)", 0.25 + Math.sin(t * 3) * 0.1);
+    const pillarW = 3;
+    const grad = ctx.createLinearGradient(x, yTop, x, yTop + h);
+    grad.addColorStop(0, "#d8ffc6"); grad.addColorStop(1, "#6fcf6f");
+    ctx.fillStyle = grad; ctx.globalAlpha = 0.8;
+    ctx.fillRect(x, yTop, pillarW, h);
+    ctx.fillRect(x + TILE - pillarW, yTop, pillarW, h);
+    ctx.globalAlpha = 1;
+    // Floating sparkles through the open channel
+    for (let i = 0; i < 4; i++) {
+      const sy = yTop + h * ((i + 0.5) / 4) + Math.sin(t * 2.5 + i * 2.1) * (h * 0.1);
+      const sx = x + TILE / 2 + Math.sin(t * 3.1 + i * 1.4) * 4;
+      ctx.globalAlpha = 0.35 + Math.abs(Math.sin(t * 5 + i * 1.9)) * 0.45;
+      ctx.fillStyle = "#eafbff";
+      ctx.beginPath(); ctx.arc(sx, sy, 2, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = "#bfff9c"; ctx.lineWidth = 1;
+    ctx.strokeRect(x + 0.5, yTop + 0.5, TILE - 1, h - 1);
+  }
+  ctx.restore();
+}
+
+function drawAntigen(ctx, x, y, t, type) {
+  const pulse = 1 + Math.sin(t * 5) * 0.18;
+  ctx.save(); ctx.translate(Math.round(x), Math.round(y + Math.sin(t * 2.4) * 1.4));
+  drawGlow(ctx, 0, 0, 7 * pulse, type.glow, 0.55);
+  ctx.fillStyle = type.color;
+  ctx.beginPath();
+  for (let i = 0; i < 8; i++) { const a = (i / 8) * Math.PI * 2; const rr = i % 2 === 0 ? 3.4 : 1.6; const px = Math.cos(a) * rr, py = Math.sin(a) * rr; i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py); }
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = "#ffffff"; ctx.globalAlpha = 0.65; ctx.fillRect(-1, -1, 1, 1); ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+function drawRBC(ctx, x, y, t) {
+  const pulse = 1 + Math.sin(t * 4) * 0.08;
+  ctx.save(); ctx.translate(Math.round(x), Math.round(y + Math.sin(t * 2) * 1.2));
+  drawGlow(ctx, 0, 0, 7 * pulse, "rgba(232,85,106,0.55)", 0.4);
+  const g = ctx.createRadialGradient(-1, -1, 1, 0, 0, 5);
+  g.addColorStop(0, "#ff8a96"); g.addColorStop(1, "#c43850");
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.ellipse(0, 0, 5, 4, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "#7a1f30"; ctx.lineWidth = 0.6;
+  ctx.beginPath(); ctx.ellipse(0, 0, 5, 4, 0, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = "#9c2438"; ctx.globalAlpha = 0.55;
+  ctx.beginPath(); ctx.ellipse(0, 0, 2.2, 1.7, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+function drawArteriole(ctx, x, yTop, h, t) {
+  drawGlow(ctx, x + 4, yTop + h / 2, 18, "rgba(255,140,110,0.35)", 0.3 + Math.sin(t * 3) * 0.1);
+  ctx.save();
+  const grad = ctx.createLinearGradient(x, yTop, x + 8, yTop + h);
+  grad.addColorStop(0, "#ffb88a"); grad.addColorStop(1, "#c4543a");
+  ctx.fillStyle = grad; ctx.fillRect(x, yTop, 8, h);
+  ctx.strokeStyle = "#7a2c1a"; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, yTop + 0.5, 7, h - 1);
+  for (let yy = yTop + 2; yy < yTop + h - 2; yy += 8) {
+    const off = (t * 20) % 8;
+    ctx.fillStyle = "#ffe6cc"; ctx.globalAlpha = 0.5;
+    ctx.fillRect(x + 2, yy + off, 4, 1);
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+function drawLadderRung(ctx, x, y, color) {
+  ctx.save(); ctx.globalAlpha = 0.6; ctx.strokeStyle = color; ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(x + 3, y); ctx.lineTo(x + 3, y + TILE);
+  ctx.moveTo(x + TILE - 3, y); ctx.lineTo(x + TILE - 3, y + TILE);
+  ctx.moveTo(x + 3, y + 4); ctx.lineTo(x + TILE - 3, y + 4);
+  ctx.moveTo(x + 3, y + 12); ctx.lineTo(x + TILE - 3, y + 12);
+  ctx.stroke();
+  ctx.restore();
+}
+// Flow-direction marker for afferent / efferent lymphatic currents.
+function drawCurrentArrow(ctx, x, y, t, dir, color) {
+  ctx.save();
+  ctx.globalAlpha = 0.3 + Math.max(0, Math.sin(t * 6 - x * 0.2)) * 0.3;
+  ctx.strokeStyle = color; ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(x - dir * 4, y); ctx.lineTo(x + dir * 4, y);
+  ctx.moveTo(x + dir * 4, y); ctx.lineTo(x + dir * 1, y - 2);
+  ctx.moveTo(x + dir * 4, y); ctx.lineTo(x + dir * 1, y + 2);
+  ctx.stroke();
+  ctx.restore();
+}
+// Per-zone background decoration for World 2, drawn behind the tiles.
+function drawZoneBackdrop(ctx, cam, biome, zoneIdx, t) {
+  ctx.save();
+  if (zoneIdx === 0 || zoneIdx === 4) {
+    // sinus / vessel: flowing current streaks + capsule/vessel wall hatching
+    const dir = 1; 
+    for (let i = 0; i < 16; i++) {
+      const wx = ((i * 70 - cam * 0.6) % (VW + 80) + (VW + 80)) % (VW + 80) - 40;
+      const wy = 30 + (i * 23) % 120;
+      drawCurrentArrow(ctx, wx, wy, t + i, dir, biome.mesh);
+    }
+    ctx.globalAlpha = 0.18; ctx.strokeStyle = biome.mesh; ctx.lineWidth = 1;
+    for (let i = 0; i < 6; i++) { const y = 10 + i * 28; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(VW, y); ctx.stroke(); }
+  } else if (zoneIdx === 1) {
+
+    for (let i = 0; i < 9; i++) {
+      const wx = i * 110 - ((cam * 0.5) % 110), wy = 30 + (i * 47) % 120, rr = 16 + (i % 3) * 5;
+      if (wx < -rr || wx > VW + rr) continue;
+      ctx.globalAlpha = 0.4; ctx.fillStyle = biome.accent;
+      ctx.beginPath(); ctx.arc(wx, wy, rr, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 0.55; ctx.fillStyle = biome.mesh;
+      ctx.beginPath(); ctx.arc(wx, wy, rr * 0.55, 0, Math.PI * 2); ctx.fill();
+    }
+  } else if (zoneIdx === 2) {
+
+    ctx.globalAlpha = 0.22; ctx.strokeStyle = biome.mesh; ctx.lineWidth = 1;
+    const cols = 9, rowsN = 5;
+    for (let cx = 0; cx <= cols; cx++) {
+      for (let cy = 0; cy <= rowsN; cy++) {
+        const baseX = cx * (VW / cols), baseY = cy * (VH / rowsN);
+        const wx = baseX - (cam * 0.5) % (VW / cols);
+        const jx = (hash2(cx, cy) - 0.5) * 14, jy = (hash2(cy, cx) - 0.5) * 14;
+        const x0 = wx + jx, y0 = baseY + jy;
+        if (cx < cols) { const x1 = wx + (VW / cols) + (hash2(cx + 1, cy) - 0.5) * 14; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y0 + (hash2(cx + 1, cy) - 0.5) * 6); ctx.stroke(); }
+        if (cy < rowsN) { const y1 = baseY + (VH / rowsN) + (hash2(cx, cy + 1) - 0.5) * 14; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x0 + (hash2(cx, cy + 1) - 0.5) * 6, y1); ctx.stroke(); }
+      }
+    }
+  } else if (zoneIdx === 3) {
+  
+    for (let i = 0; i < 5; i++) {
+      const yBase = 20 + i * 30;
+      ctx.globalAlpha = 0.35; ctx.strokeStyle = biome.accent; ctx.lineWidth = 6;
+      ctx.beginPath();
+      for (let x = -10; x <= VW + 10; x += 8) { const y = yBase + Math.sin(x * 0.05 + i * 1.3 + t * 0.4) * 6; x === -10 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); }
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
+function rng(seed) {
+  let a = seed >>> 0;
+  return () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+function generateWorld1() {
+  const R = rng(424242);
+  const solid = new Set();
+  const surfaceRow = new Array(COLS1).fill(null);
+  const key = (c, r) => c * 1000 + r;
+  const addSolid = (c, r) => { if (r >= 0 && r < ROWS) solid.add(key(c, r)); };
+
+  const pits = [[20, 22], [40, 42], [62, 64], [84, 86], [105, 107]]; // 3 wide
+  let top = 8;
+  for (let c = 0; c < COLS1; c++) {
+    if (R() < 0.1) top += R() < 0.5 ? -1 : 1;
+    top = Math.max(7, Math.min(9, top));
+    if (pits.some(([a, b]) => c >= a && c <= b)) { surfaceRow[c] = null; continue; }
+    surfaceRow[c] = top;
+    for (let r = top; r < ROWS; r++) addSolid(c, r);
+  }
+  // platforms (extra ones near pits for safety)
+  const platforms = [
+    [10, 4, 5], [21, 3, 6], [29, 4, 4], [38, 4, 6], [47, 4, 5], [54, 3, 4],
+    [61, 4, 6], [70, 3, 5], [79, 4, 6], [89, 4, 4], [97, 3, 5], [104, 4, 6], [112, 4, 4],
+  ];
+  platforms.forEach(([c0, len, row]) => { for (let i = 0; i < len; i++) addSolid(c0 + i, row); });
+
+  const orbs = [];
+  platforms.forEach(([c0, len, row]) => { for (let i = 0; i < len; i++) if (R() < 0.8) orbs.push({ x: (c0 + i) * TILE + 8, y: row * TILE - 5, got: false }); });
+  for (let c = 4; c < COLS1 - 6; c += 3) if (surfaceRow[c] != null && R() < 0.45) orbs.push({ x: c * TILE + 8, y: surfaceRow[c] * TILE - 7, got: false });
+
+  const gy = (c) => (surfaceRow[c] != null ? surfaceRow[c] * TILE : 9 * TILE);
+
+  const enemies = [];
+  [16, 44, 92].forEach((c) => enemies.push({ type: "macro", x: c * TILE, y: gy(c) - 14, r: 13, vx: 0.3 * (R() < 0.5 ? 1 : -1), minX: (c - 4) * TILE, maxX: (c + 4) * TILE, t: R() * 6, facing: 1 }));
+  [28, 56, 100].forEach((c) => enemies.push({ type: "neut", x: c * TILE, y: gy(c) - 17, w: 20, h: 17, vx: 0.6 * (R() < 0.5 ? 1 : -1), minX: (c - 5) * TILE, maxX: (c + 5) * TILE, t: R() * 6, facing: 1, chase: false }));
+  [50, 76, 116].forEach((c) => enemies.push({ type: "tcell", x: c * TILE, y: gy(c) - 12, t: R() * 6, cd: 90 + R() * 60, charge: 0, dir: -1 }));
+
+  const antibodies = [
+    { x: 34 * TILE, y: 60, t: 0, baseY: 60, amp: 20, phase: 0 },
+    { x: 68 * TILE, y: 72, t: 0, baseY: 72, amp: 24, phase: 2 },
+    { x: 108 * TILE, y: 62, t: 0, baseY: 62, amp: 18, phase: 4 },
+  ];
+  const cytokines = [];
+
+  const npc = {
+    x: 6 * TILE, y: gy(6) - 15,
+    name: "B-Cell",
+    sprite: "bcell", decor: "antibody",
+    lines: [
+      "I'm a B lymphocyte. My BCR is surface IgM/IgD; antigen crosslinking is signal 1.",
+      "For T-dependent antigens I also need CD40-CD40L and IL-21 from a follicular helper T cell.",
+      "In the germinal center I run somatic hypermutation, then dark/light-zone affinity maturation.",
+      "AID (activation-induced cytidine deaminase) drives both hypermutation and class-switch recombination.",
+      "I terminally differentiate into a plasma cell secreting antibody, or a long-lived memory B cell.",
+      "Antibody effects: neutralization, opsonization (FcgammaR), complement fixation, and NK-mediated ADCC.",
+      "Isotypes split the work: IgA guards mucosa, IgE arms mast cells, IgG opsonizes and crosses placenta.",
+      "Move with arrows or A/D, jump with Space/W; press jump twice for a double-jump.",
+      "Antigens drain from the tissue into afferent lymphatics, heading for a lymph node. So will you.",
+    ],
+    line: 0,
+  };
+  const exit = { x: (COLS1 - 5) * TILE, y: gy(COLS1 - 5) - 14, kind: "portal", label: "Lymph Node \u2192" };
+  const spawn = { x: 3 * TILE, y: gy(3) - 16 };
+  return { worldId: 1, cols: COLS1, biomes: BIOMES1, solid, surfaceRow, platforms, orbs, enemies, antibodies, cytokines, npc, exit, spawn, totalOrbs: orbs.length };
+}
+
+function generateWorld2() {
+  const R = rng(987654);
+  const solid = new Set();
+  const surfaceRow = new Array(COLS2).fill(null);
+  const key = (c, r) => c * 1000 + r;
+  const addSolid = (c, r) => { if (r >= 0 && r < ROWS) solid.add(key(c, r)); };
+
+  const pits = [[17, 19], [43, 45], [66, 68], [90, 92], [120, 122], [150, 152]];
+  let top = 8;
+  for (let c = 0; c < COLS2; c++) {
+    if (R() < 0.1) top += R() < 0.5 ? -1 : 1;
+    top = Math.max(7, Math.min(9, top));
+    if (pits.some(([a, b]) => c >= a && c <= b)) { surfaceRow[c] = null; continue; }
+    surfaceRow[c] = top;
+    for (let r = top; r < ROWS; r++) addSolid(c, r);
+  }
+  const platforms = [
+    [8, 4, 5], [22, 3, 6], [35, 4, 4], [48, 4, 6], [58, 3, 5],
+    [76, 4, 6], [88, 3, 4], [100, 4, 5],
+    [113, 4, 6], [126, 3, 4], [138, 4, 5],
+    [155, 4, 5], [162, 3, 6],
+  ];
+  platforms.forEach(([c0, len, row]) => { for (let i = 0; i < len; i++) addSolid(c0 + i, row); });
+
+
+  const trabeculaCols = [6, 33, 64, 95, 128, 158];
+  trabeculaCols.forEach((c) => {
+    if (surfaceRow[c] == null) return;
+    const newTop = Math.max(surfaceRow[c] - 2, 4);
+    for (let r = newTop; r < ROWS; r++) addSolid(c, r);
+    surfaceRow[c] = newTop;
+  });
+  const trabeculae = new Set(trabeculaCols);
+
+  const gy = (c) => (surfaceRow[c] != null ? surfaceRow[c] * TILE : 9 * TILE);
+
+  const orbs = [];
+  platforms.forEach(([c0, len, row]) => { for (let i = 0; i < len; i++) if (R() < 0.8) orbs.push({ x: (c0 + i) * TILE + 8, y: row * TILE - 5, got: false }); });
+  for (let c = 4; c < COLS2 - 6; c += 3) if (surfaceRow[c] != null && R() < 0.4 && !trabeculae.has(c)) orbs.push({ x: c * TILE + 8, y: surfaceRow[c] * TILE - 7, got: false });
+
+  const antigens = [
+    { type: 0, x: 11 * TILE, y: gy(11) - 10, got: false },
+    { type: 1, x: 24 * TILE, y: 6 * TILE - 4, got: false },
+    { type: 2, x: 41 * TILE, y: gy(41) - 10, got: false },
+  ];
+
+  const fdcs = [
+    { type: 0, x: 50 * TILE, y: 6 * TILE - 10, delivered: false },
+    { type: 1, x: 59 * TILE, y: 5 * TILE - 10, delivered: false },
+    { type: 2, x: 64 * TILE + 8, y: 7 * TILE - 10, delivered: false },
+  ];
+
+  const hevs = [
+    { x: 80 * TILE, yTop: 3 * TILE, h: 6 * TILE, touched: false },
+    { x: 103 * TILE, yTop: 3 * TILE, h: 6 * TILE, touched: false },
+  ];
+
+  const enemies = [];
+  [10, 21].forEach((c) => enemies.push({ type: "macro", x: c * TILE, y: gy(c) - 14, r: 13, vx: 0.28 * (R() < 0.5 ? 1 : -1), minX: (c - 4) * TILE, maxX: (c + 4) * TILE, t: R() * 6, facing: 1 }));
+  [16].forEach((c) => enemies.push({ type: "neut", x: c * TILE, y: gy(c) - 17, w: 20, h: 17, vx: 0.5 * (R() < 0.5 ? 1 : -1), minX: (c - 4) * TILE, maxX: (c + 4) * TILE, t: R() * 6, facing: 1, chase: false }));
+  [78, 89, 105].forEach((c) => enemies.push({ type: "tcell", x: c * TILE, y: gy(c) - 12, t: R() * 6, cd: 80 + R() * 60, charge: 0, dir: -1 }));
+
+  const plasmas = [
+    { x: 114 * TILE, y: gy(114) - 11, t: R() * 6, cd: 110 + R() * 40 },
+    { x: 129 * TILE, y: gy(129) - 11, t: R() * 6, cd: 110 + R() * 40 },
+    { x: 143 * TILE, y: gy(143) - 11, t: R() * 6, cd: 110 + R() * 40 },
+  ];
+
+  const antibodies = [
+    { x: 36 * TILE, y: 60, t: 0, baseY: 60, amp: 20, phase: 0 },
+    { x: 86 * TILE, y: 70, t: 0, baseY: 70, amp: 24, phase: 2 },
+  ];
+  const cytokines = [];
+
+  const npc = {
+    x: 4 * TILE, y: gy(4) - 16,
+    name: "Reticular Cell",
+    sprite: "retic",
+    lines: [
+      "I'm a fibroblastic reticular cell. My processes and type III collagen (reticulin) fibers build the scaffold of this whole node.",
+      "You came in through an afferent lymphatic vessel and you're now in the subcapsular sinus, just beneath the capsule.",
+      "Ahead lies the superficial cortex - packed with lymphoid follicles. Carry antigen to a follicular dendritic cell to trigger a germinal center reaction.",
+      "Deeper in is the paracortex - the T-cell zone, threaded with high endothelial venules (HEVs).",
+      "At the core is the medulla: medullary cords full of plasma cells, with medullary sinuses draining toward the hilum.",
+      "Lymphocytes can leave the way you came - via efferent lymph - or re-enter the blood through an HEV.",
+      "Sinus macrophages filter this lymph for antigen and debris before it ever reaches a follicle.",
+      "Find the efferent lymphatic vessel at the far end of the medulla - it drains into the splenic artery, your route into the spleen.",
+    ],
+    line: 0,
+  };
+  const exit = { x: (COLS2 - 4) * TILE, y: gy(COLS2 - 4) - 14, kind: "portal", next: 3, label: "Splenic Artery \u2192" };
+  const spawn = { x: 3 * TILE, y: gy(3) - 16 };
+
+ 
+  const currents = [
+    { c0: 0, c1: 28, force: 0.045, dir: 1 },
+    { c0: 149, c1: COLS2, force: 0.07, dir: 1 },
+  ];
+
+  return {
+    worldId: 2, cols: COLS2, biomes: BIOMES2, solid, surfaceRow, platforms, trabeculae,
+    orbs, antigens, fdcs, hevs, enemies, plasmas, antibodies, cytokines, npc, exit, spawn,
+    currents, totalOrbs: orbs.length, zonesSeen: new Array(BIOMES2.length).fill(false),
+  };
+}
+
+function isSolid(world, c, r) {
+  if (world.solid.has(c * 1000 + r)) return true;
+  const g = world.gate;
+  if (g && !g.open && c === g.c0 && r >= g.r0 && r <= g.r1) return true;
+  return false;
+}
+function isLadder(world, c, r) { return world.ladderCells && world.ladderCells.has(c * 1000 + r); }
+
+
+function generateWorld3() {
+  const R = rng(135798);
+  const solid = new Set();
+  const ladderCells = new Set();
+  const key = (c, r) => c * 1000 + r;
+  const addSolid = (c, r) => { if (r >= 0 && r < ROWS3 && c >= 0 && c < COLS3) solid.add(key(c, r)); };
+  const fillRect = (c0, r0, c1, r1) => { for (let c = c0; c <= c1; c++) for (let r = r0; r <= r1; r++) addSolid(c, r); };
+  const addLadderCol = (c, r0, r1) => { for (let r = r0; r <= r1; r++) ladderCells.add(key(c, r)); };
+
+
+  fillRect(0, 8, 7, 8); fillRect(9, 8, 50, 8);
+  // Marginal zone floor
+  fillRect(0, 11, 7, 11); fillRect(9, 11, 29, 11); fillRect(31, 11, 69, 11); fillRect(71, 11, 103, 11);
+  // Red pulp floor — extended to reach tube and post-tube area
+  fillRect(0, 18, 29, 18); fillRect(31, 18, 50, 18); fillRect(51, 18, 68, 18); fillRect(72, 18, 84, 18);
+  // Closed-circulation tube walls
+  fillRect(69, 12, 69, 20); fillRect(71, 12, 71, 20);
+  // Venous sinusoid floor — full continuous floor; gate at col 85 is decorative only
+  fillRect(0, 21, 103, 21);
+
+
+  const platforms = [
+    [9, 18, 15],    // near RBC 1 (col 11); starts at col 9, arteriole shaft (col 8) stays clear
+    [18, 27, 13],   // near RBC 2 (col 21)
+    [33, 44, 16],   // open-circulation area
+    [43, 53, 14],   // covers Red Pulp Macrophage station (col 45)
+    [57, 66, 15],   // stepping stone toward tube entrance (col 70)
+    // No platform past the tube — exit is DOWN on the sinusoid floor, not right at the gate
+  ];
+  platforms.forEach(([c0, c1, row]) => fillRect(c0, row, c1, row));
+
+
+  addLadderCol(8, 0, 17);   
+  addLadderCol(30, 11, 20); 
+  addLadderCol(70, 12, 20); 
+
+
+  const orbs = [];
+  const addOrb = (c, r, dy) => orbs.push({ x: c * TILE + 8, y: r * TILE + (dy || -7), got: false });
+  for (let c = 1; c <= 49; c++) { if (c === 8) continue; if (R() < 0.35) addOrb(c, 8); }
+  for (let c = 1; c <= 102; c++) { if (c === 8 || c === 30 || c === 70) continue; if (R() < 0.22) addOrb(c, 11); }
+  for (let c = 1; c <= 49; c++) { if (c === 8 || c === 30) continue; if (R() < 0.3) addOrb(c, 18); }
+  for (let c = 2; c <= 102; c += 2) { if (c === 30 || c === 70) continue; if (R() < 0.18) addOrb(c, 21); }
+  platforms.forEach(([c0, c1, row]) => { for (let c = c0; c <= c1; c++) if (R() < 0.7) addOrb(c, row); });
+
+  const rbcs = [
+    { x: 11 * TILE + 8, y: 15 * TILE - 8, got: false, fact: 0 }, 
+    { x: 21 * TILE + 8, y: 13 * TILE - 8, got: false, fact: 1 }, 
+    { x: 70 * TILE + 8, y: 16 * TILE, got: false, fact: 2 },    
+  ];
+  const rpStation = { x: 45 * TILE + 8, y: 14 * TILE - 8 };
+
+ 
+  const enemies = [];
+  [15, 38].forEach((c) => enemies.push({ type: "tcell", x: c * TILE, y: 8 * TILE - 12, t: R() * 6, cd: 80 + R() * 60, charge: 0, dir: -1 }));
+  [20, 55].forEach((c) => enemies.push({ type: "macro", x: c * TILE, y: 11 * TILE - 14, r: 13, vx: 0.28 * (R() < 0.5 ? 1 : -1), minX: (c - 4) * TILE, maxX: (c + 4) * TILE, t: R() * 6, facing: 1 }));
+
+
+  const npcs = [
+    {
+      x: 42 * TILE, y: 8 * TILE - 16,
+      name: "Marginal Zone B Cell", sprite: "mzb",
+      lines: [
+        "Hi! I'm a B cell on my way to the marginal zone - I'm IgM-high and don't wait around for T-cell help.",
+        "T-independent antigens, like bacterial capsular polysaccharide, cross-link my BCR directly and trigger fast IgM secretion.",
+        "Follicular B cells (like the ones in the lymph node) go through germinal centers for high-affinity, class-switched antibody - that takes days.",
+        "I trade affinity for speed: a quick IgM response with no somatic hypermutation needed.",
+        "Just behind me is a lymphoid follicle - the B-cell zone of white pulp, sitting alongside the T-cell PALS that wraps the central arteriole.",
+        "When you're ready, drop down the central shaft at the gap in the floor (hold Down to climb) to reach the marginal zone below.",
+      ],
+      line: 0,
+    },
+    {
+      x: 3 * TILE, y: 11 * TILE - 16,
+      name: "Marginal Zone Macrophage", sprite: "mzmac", clearsObjective: true,
+      nextObjective: { x: rpStation.x, y: rpStation.y, label: "Red Pulp Macrophage" },
+      lines: [
+        "Made it down the shaft! I'm a marginal zone macrophage - this ring of tissue is the border between white pulp and red pulp.",
+        "Blood draining from the penicilliary arterioles empties into the marginal zone first, so I get first look at anything blood-borne.",
+        "I work alongside marginal zone B cells - IgM-heavy and built for fast, T-independent responses to things like bacterial capsular polysaccharide.",
+        "This is also why asplenia (an absent or non-functioning spleen) raises risk from encapsulated bacteria - S. pneumoniae, H. influenzae, N. meningitidis.",
+        "Two shafts lead down from this floor - hop into either one and see what it's like. Collect any senescent RBCs you find and bring them to the red pulp macrophage.",
+        "Up/Down (or W/S) climbs a shaft; Left/Right moves, Space jumps.",
+      ],
+      line: 0,
+    },
+    {
+      x: 45 * TILE, y: 14 * TILE - 15,
+      name: "Red Pulp Macrophage", sprite: "rpmac",
+      lines: [
+        "Welcome to the cords of Billroth - I'm a red pulp macrophage, and this is where old red blood cells come to retire.",
+        ...CODEX3.rpmac.map((f) => f.text),
+        "Bring me any senescent RBCs you find floating around here - I'll recycle them, and you'll earn some ATP.",
+        "When you're done exploring red pulp, head into the venous sinusoids below and find the splenic vein to complete your journey.",
+      ],
+      line: 0,
+    },
+  ];
+
+  // Exit on the sinusoid floor \u2014 reached by descending col-30 shaft then walking right.
+  // Starts LOCKED (active:false) until all 3 RBCs are delivered.
+  const exit = { x: 52 * TILE, y: 21 * TILE - 8, kind: "exit", label: "Splenic Vein \u2014 EXIT", active: false };
+  const spawn = { x: 3 * TILE, y: 1 * TILE };
+  const arteriole = { x: 8 * TILE, yTop: 0, h: 18 * TILE };
+  const cytokines = [];
+  const antibodies = [];
+
+
+  const routeMarkers = [
+    { x: 30 * TILE, y: 11 * TILE - 8 },
+    { x: 70 * TILE, y: 11 * TILE - 8 }, 
+  ];
+
+
+  // Gate is now a visual/educational landmark only — the exit is before it on the sinusoid floor
+  const gate = { c0: 85, r0: 0, r1: 20, open: false };
+
+  return {
+    worldId: 3, cols: COLS3, rows: ROWS3, biomes: BIOMES3, zoneAxis: "row",
+    solid, ladderCells, orbs, rbcs, rbcsDelivered: 0, rpStation, enemies, npcs, exit, spawn, arteriole,
+    routeMarkers, routeSeen: [false, false], gate, gateSeen: false,
+    cytokines, antibodies, totalOrbs: orbs.length, zonesSeen: new Array(BIOMES3.length).fill(false),
+  };
+}
+
+
+const LABELS = { macro: "Macrophage", neut: "Neutrophil", tcell: "T-Cell" };
+const CODEX1 = {
+  macro: [
+    { name: "MACROPHAGE", text: "Tissue-resident phagocyte from monocytes (CSF-1 driven). Kupffer cells, microglia, alveolar macrophages are all me." },
+    { name: "MACROPHAGE", text: "I phagocytose via FcgammaR (opsonizing IgG) and CR3/CR1 (complement C3b/iC3b), then fuse phagosome with lysosome." },
+    { name: "MACROPHAGE", text: "The respiratory burst: NADPH oxidase makes superoxide; iNOS makes NO. I kill what I engulf." },
+    { name: "MACROPHAGE", text: "I present antigen on MHC class II to CD4+ T cells and secrete IL-12, TNF-alpha, and IL-1beta." },
+    { name: "MACROPHAGE", text: "Polarization matters: IFN-gamma/LPS gives pro-inflammatory M1; IL-4/IL-13 gives tissue-repair M2." },
+  ],
+  neut: [
+    { name: "NEUTROPHIL", text: "First responder. I roll on selectins, then firmly adhere via integrins, following IL-8, C5a, and fMLP gradients." },
+    { name: "NEUTROPHIL", text: "My azurophilic granules carry myeloperoxidase, defensins, and elastase; specific granules carry lactoferrin." },
+    { name: "NEUTROPHIL", text: "Respiratory burst: NADPH oxidase, then MPO converts H2O2 to hypochlorous acid to oxidize microbes." },
+    { name: "NEUTROPHIL", text: "Cornered, I cast NETs: decondensed chromatin webbed with histones and elastase to trap pathogens." },
+    { name: "NEUTROPHIL", text: "I'm short-lived; my apoptosis and macrophage efferocytosis help resolve the inflammatory response." },
+  ],
+  tcell: [
+    { name: "T-CELL", text: "Cytotoxic CD8+ T cell. My TCR reads peptide on MHC class I; CD8 is the co-receptor." },
+    { name: "T-CELL", text: "Full activation needs signal 1 (TCR-pMHC), signal 2 (CD28-B7), and signal 3 cytokines (IL-12, type-I IFN)." },
+    { name: "T-CELL", text: "I kill via perforin and granzyme B, and via Fas-FasL, both converging on caspase-driven apoptosis." },
+    { name: "T-CELL", text: "IL-2 drives my clonal expansion; MHC class I lets me detect virus-infected and tumor cells." },
+    { name: "T-CELL", text: "After the response most effectors die; central and effector memory T cells persist for recall." },
+  ],
+};
+
+
+const CODEX2 = {
+  macro: [
+    { name: "SINUS MACROPHAGE", text: "I sit in the subcapsular sinus, the space between the capsule and the cortex where afferent lymph first arrives." },
+    { name: "SINUS MACROPHAGE", text: "Lymphatic capillaries are more permeable than blood capillaries, so antigen and even whole cells reach me quickly via lymph." },
+    { name: "SINUS MACROPHAGE", text: "My pseudopodia stick through gaps in the sinus lining to monitor the slow, filtered flow of lymph for foreign material." },
+    { name: "SINUS MACROPHAGE", text: "Reticular cells crisscross this sinus, slowing lymph flow and amplifying my chance to filter antigen and transformed cells." },
+    { name: "SINUS MACROPHAGE", text: "If I phagocytose and process you here, I can present your peptides on MHC II directly to nearby T cells." },
+  ],
+  neut: [
+    { name: "SINUS NEUTROPHIL", text: "Neutrophils are normally rare in lymphoid tissue. Finding me here in the sinus is itself a sign that this node is reactive." },
+    { name: "SINUS NEUTROPHIL", text: "In acute lymphadenitis, neutrophils flood the sinuses and the follicles enlarge - the node becomes swollen and tender." },
+    { name: "SINUS NEUTROPHIL", text: "I got here the usual way: selectin-mediated rolling, integrin-mediated firm adhesion, then chemotaxis along IL-8 and C5a gradients." },
+  ],
+  tcell: [
+    { name: "PARACORTEX T-CELL", text: "Welcome to the paracortex - the deep cortex. No follicles here, just T cells, which is why it's called the thymus-dependent zone." },
+    { name: "PARACORTEX T-CELL", text: "Most lymphocytes don't enter via afferent lymph at all - about 90% cross into the node here, through HEVs." },
+    { name: "PARACORTEX T-CELL", text: "I wait here for dendritic cells carrying processed antigen on MHC I or MHC II from the periphery." },
+    { name: "PARACORTEX T-CELL", text: "B cells that cross an HEV migrate on into the cortical follicles; T cells like me stay put in the paracortex." },
+    { name: "PARACORTEX T-CELL", text: "Perinatal thymectomy leaves this paracortical zone poorly developed - hence 'thymus-dependent' cortex." },
+  ],
+  fdc: [
+    { name: "FOLLICULAR DENDRITIC CELL", text: "I trap antigen-antibody-complement complexes on my dendrites via Fc and complement receptors - and hold them for weeks to years." },
+    { name: "FOLLICULAR DENDRITIC CELL", text: "I don't endocytose antigen like a macrophage. I display it intact on my surface for B cells to test their receptors against." },
+    { name: "FOLLICULAR DENDRITIC CELL", text: "I lack MHC II, so technically I'm not a classical APC - but without me there's no germinal center reaction." },
+    { name: "FOLLICULAR DENDRITIC CELL", text: "Around the germinal center sits the mantle (corona): a rim of small, resting, unstimulated B lymphocytes." },
+    { name: "FOLLICULAR DENDRITIC CELL", text: "A germinal center is the morphologic signature of an active B-cell response - dense with mitoses and apoptotic debris." },
+  ],
+  plasma: [
+    { name: "PLASMA CELL", text: "I'm a terminally-differentiated B cell living in the medullary cords, and my job is to pump out antibody." },
+    { name: "PLASMA CELL", text: "My cytoplasm is packed with rough ER for antibody synthesis - that's why I'm so basophilic, with a pale Golgi 'clear zone'." },
+    { name: "PLASMA CELL", text: "My nucleus often shows a 'clock-face' (cartwheel) heterochromatin pattern - a classic histology giveaway." },
+    { name: "PLASMA CELL", text: "Antibody I secrete drains into the medullary sinuses, then leaves the node via the efferent lymphatic vessel." },
+    { name: "PLASMA CELL", text: "Medullary cords are irregular branching cords of lymphoid tissue, separated by the medullary sinuses around me." },
+  ],
+};
+
+
+const ZONE_FACTS2 = [
+  { name: "ARCHITECTURE", text: "A lymph node is a small encapsulated organ. Afferent lymphatics pierce the dense connective-tissue capsule and drain straight into this subcapsular sinus." },
+  { name: "ARCHITECTURE", text: "The outer cortex is full of lymphoid follicles. Primary follicles are solid nodules of small B cells; secondary follicles have a pale germinal center ringed by a mantle." },
+  { name: "ARCHITECTURE", text: "The paracortex (deep cortex) has no follicles - it's the T-cell zone, the thymus-dependent cortex, and home to the HEVs." },
+  { name: "ARCHITECTURE", text: "The medulla is built from medullary cords - lymphoid tissue rich in plasma cells - separated by medullary sinuses converging on the hilum." },
+  { name: "ARCHITECTURE", text: "At the hilum, medullary sinuses empty into the efferent lymphatic vessel - the only route out of the node for lymph and lymphocytes alike." },
+];
+
+
+const HEV_FACTS = [
+  { name: "HIGH ENDOTHELIAL VENULE", text: "Both T and B cells leave the bloodstream here by diapedesis, squeezing between plump cuboidal endothelial cells - not the usual flat endothelium." },
+  { name: "HIGH ENDOTHELIAL VENULE", text: "Roughly 90% of lymphocytes enter a lymph node through HEVs in the paracortex, not through afferent lymphatics." },
+  { name: "HIGH ENDOTHELIAL VENULE", text: "After cycling through the node, lymphocytes leave again via efferent lymph, re-enter the blood, and recirculate to another node." },
+];
+
+
+const ANTIGEN_TYPES = [
+  { key: "viral", color: "#ff5a6e", glow: "rgba(255,90,110,0.8)", name: "Viral Antigen" },
+  { key: "bacterial", color: "#5ab0ff", glow: "rgba(90,176,255,0.8)", name: "Bacterial Polysaccharide" },
+  { key: "toxin", color: "#ffd34d", glow: "rgba(255,211,77,0.8)", name: "Toxin / Allergen" },
+];
+// Germinal-center facts unlocked by delivering each antigen to its FDC
+const ANTIGEN_FACTS = [
+  { name: "GERMINAL CENTER \u2014 LIGHT ZONE", text: "MATCH! Centrocytes whose BCR binds this antigen best get survival signals from T follicular helper cells - positive selection in the light zone." },
+  { name: "GERMINAL CENTER \u2014 DARK ZONE", text: "MATCH! In the dark zone, centroblasts proliferate fast while AID (activation-induced cytidine deaminase) mutates their Ig genes - somatic hypermutation." },
+  { name: "CLASS-SWITCH RECOMBINATION", text: "MATCH! The same antigen specificity can now be exported on a different heavy chain - IgM switches to IgG, IgA, or IgE." },
+];
+
+
+const CODEX3 = {
+  tcell: [
+    { name: "PALS T-CELL", text: "The periarteriolar lymphatic sheath (PALS) is a cuff of T cells wrapped around the central arteriole - the spleen's T-cell zone." },
+    { name: "PALS T-CELL", text: "Lymphoid follicles bud off the PALS, just like in a lymph node - secondary follicles here get their own germinal centers too." },
+    { name: "PALS T-CELL", text: "Blood enters via the splenic artery, which branches into central arterioles - each one wrapped by its own PALS." },
+    { name: "PALS T-CELL", text: "Antigen carried in the blood is trapped here in white pulp, the same way a lymph node traps antigen draining in via lymph." },
+    { name: "PALS T-CELL", text: "Past the PALS, central arterioles continue as penicilliary arterioles, draining toward the marginal zone and red pulp." },
+  ],
+  macro: [
+    { name: "MARGINAL ZONE MACROPHAGE", text: "The marginal zone is the border between white and red pulp - blood from penicilliary arterioles empties here first." },
+    { name: "MARGINAL ZONE MACROPHAGE", text: "I'm often the first cell to meet a blood-borne pathogen, well before it could reach the cords of Billroth." },
+    { name: "MARGINAL ZONE MACROPHAGE", text: "The marginal zone is rich in marginal zone B cells - a subset primed for fast, T-independent antibody responses." },
+    { name: "MARGINAL ZONE MACROPHAGE", text: "Encapsulated bacteria depend heavily on this zone's surveillance - which is why an absent or poorly functioning spleen raises risk from organisms like pneumococcus." },
+  ],
+  rpmac: [
+    { name: "RED PULP MACROPHAGE", text: "I patrol the cords of Billroth - the spleen's 'graveyard' for aged and damaged red blood cells." },
+    { name: "RED PULP MACROPHAGE", text: "Each erythrocyte gets tested for deformability here; cells too stiff to squeeze into the sinusoids get phagocytosed on the spot." },
+    { name: "RED PULP MACROPHAGE", text: "Hemoglobin breakdown: globin is recycled to amino acids, while heme splits into iron (recycled) and biliverdin, then bilirubin." },
+    { name: "RED PULP MACROPHAGE", text: "Recycled iron travels back to the bone marrow via transferrin for new hemoglobin synthesis." },
+    { name: "RED PULP MACROPHAGE", text: "I also help store platelets - the spleen normally holds roughly a third of the body's platelet pool in reserve." },
+  ],
+};
+
+
+const ZONE_FACTS3 = [
+  { name: "ARCHITECTURE", text: "White pulp is lymphoid tissue arranged around a central arteriole: a T-cell PALS sleeve, with B-cell follicles - sometimes carrying their own germinal centers - budding off to one side." },
+  { name: "ARCHITECTURE", text: "The marginal zone surrounds white pulp and is the first stop for blood draining from penicilliary arterioles - rich in macrophages and marginal zone B cells." },
+  { name: "ARCHITECTURE", text: "Red pulp is a meshwork of splenic cords (cords of Billroth): reticular tissue packed with macrophages, red cells, and platelets, threaded between venous sinusoids." },
+  { name: "ARCHITECTURE", text: "Venous sinusoids are lined by elongated 'stave' (littoral) cells with slit-like fenestrations. Blood that passes this checkpoint moves on to the splenic vein." },
+];
+
+
+const RBC_FACTS = [
+  { name: "OPEN CIRCULATION", text: "RECYCLED! In 'open' circulation, blood leaves the arterioles directly into the cords - cells must squeeze through slit-like openings into sinusoids, and stiff or aged RBCs get stuck and phagocytosed right here." },
+  { name: "HEMOGLOBIN RECYCLING", text: "RECYCLED! Globin is broken down to amino acids for reuse; heme splits into iron (recycled via transferrin to the marrow) and biliverdin, which becomes bilirubin bound for the liver." },
+  { name: "CLOSED CIRCULATION", text: "RECYCLED! In 'closed' circulation, some capillaries connect directly to sinusoids, letting healthy red cells bypass the cords entirely - a faster, gentler route." },
+];
+
+
+const ROUTE_FACTS3 = [
+  { name: "OPEN CIRCULATION ROUTE", text: "This shaft drops through the cords of Billroth. In open circulation, arterial blood empties straight into this reticular meshwork and must squeeze through slit-pores to reach a sinusoid - any RBC too stiff to deform gets caught here." },
+  { name: "CLOSED CIRCULATION ROUTE", text: "This shaft is a direct sinusoidal channel. In closed circulation, capillaries connect straight to the sinusoid lumen, letting healthy RBCs bypass the cords' macrophage gauntlet entirely." },
+];
+
+const RBC_DONE_FACT = { name: "RECYCLING COMPLETE", text: "All three erythrocytes recycled! Follow the venous sinusoids down and to the right to find the splenic vein and complete your journey." };
+const GATE_CLOSED_FACT = { name: "HEV \u2014 CLOSED", text: "This high endothelial venule won't let a pathogen through yet. Recycle all three senescent RBCs at the red pulp macrophage to open it." };
+
+function MicrobeQuestV2() {
+  const gameRef = useRef(null);
+  const textRef = useRef(null);
+  const stateRef = useRef(null);
+  const modeRef = useRef("title");
+  const mutedRef = useRef(false);
+  const volumeRef = useRef(1);
+  const audioRef = useRef(null);
+  const inputRef = useRef({ left: false, right: false, up: false, down: false });
+  const spriteRef = useRef(null);
+  const pendingCarryRef = useRef(null);
+
+  const [mode, setMode] = useState("title");
+  const [muted, setMuted] = useState(false);
+  const [volume, setVolume] = useState(1);
+  const [stats, setStats] = useState({ atp: 0, total: 0, time: 0, worldId: 1 });
+  const [transitionTo, setTransitionTo] = useState(2);
+
+  const setModeBoth = (m) => { modeRef.current = m; setMode(m); };
+
+  if (!spriteRef.current && typeof document !== "undefined") {
+    spriteRef.current = {
+      idle: [makeSprite(pathoFrame(0, 0, false), PATHO_PAL), makeSprite(pathoFrame(1, 0, false), PATHO_PAL)],
+      blink: makeSprite(pathoFrame(0, 0, true), PATHO_PAL),
+      run: [makeSprite(pathoFrame(0, 1, false), PATHO_PAL), makeSprite(pathoFrame(1, 2, false), PATHO_PAL)],
+      jump: makeSprite(pathoFrame(1, 0, false), PATHO_PAL),
+      neut: [makeSprite(neutFrame(0), NEUT_PAL), makeSprite(neutFrame(1), NEUT_PAL)],
+      bcell: makeSprite(bcellGrid(), BCELL_PAL),
+      retic: makeSprite(reticularGrid(), RETIC_PAL),
+      mzmac: makeSprite(mzMacGrid(), MZMAC_PAL),
+      mzb: makeSprite(bcellGrid(), MZB_PAL),
+      rpmac: makeSprite(rpMacGrid(), RPMAC_PAL),
+    };
+  }
+
+  const reset = (worldId, carry) => {
+    worldId = worldId || 1;
+    const world = worldId === 3 ? generateWorld3() : worldId === 2 ? generateWorld2() : generateWorld1();
+    const prevAtp = carry ? carry.atp : 0;
+    const prevTotal = carry ? carry.totalOrbsAll : 0;
+    const prevFrames = carry ? carry.frames : 0;
+    stateRef.current = {
+      world, worldId,
+      player: { x: world.spawn.x, y: world.spawn.y, w: 12, h: 12, vx: 0, vy: 0, onGround: false, facing: 1, anim: 0, jumps: 0, coyote: 0, buffer: 0, invuln: 0, hearts: 3, blink: 0, land: 0, carry: null, carryMeta: null },
+      cam: 0, camY: 0, t: 0, atp: prevAtp, totalOrbsAll: prevTotal + world.totalOrbs, particles: [], bubbles: [], acc: 0, frames: prevFrames,
+      dialog: "", dialogT: 0, banner: null, bannerT: 0, activeNpcName: "", hitFlash: 0, scorePopups: [],
+      factIndex: { macro: 0, neut: 0, tcell: 0, fdc: 0, plasma: 0, hev: 0 },
+      primed: { macro: true, neut: true, tcell: true, fdc: true, plasma: true, hev: true },
+      checkpoint: null,
+      objective: worldId === 3 ? { x: world.npcs[1].x + 8, y: world.npcs[1].y - 4, label: "Marginal Zone Macrophage" } : null,
+    };
+   
+    const ww = world.cols * TILE;
+    const wh = (world.rows || ROWS) * TILE;
+    for (let i = 0; i < 28; i++) stateRef.current.bubbles.push({ x: Math.random() * ww, y: Math.random() * wh, r: 1 + Math.random() * 2, sp: 0.2 + Math.random() * 0.4, ph: Math.random() * 6 });
+  };
+
+  const sound = (type) => {
+    if (mutedRef.current) return;
+    const ac = audioRef.current; if (!ac) return;
+    const vMul = volumeRef.current;
+    if (vMul <= 0) return;
+    try {
+      const now = ac.currentTime;
+      const mk = (f0, f1, dur, wave, vol) => {
+        const o = ac.createOscillator(), g = ac.createGain();
+        o.type = wave; o.frequency.setValueAtTime(f0, now);
+        o.frequency.exponentialRampToValueAtTime(Math.max(40, f1), now + dur);
+        g.gain.setValueAtTime(vol * vMul, now); g.gain.exponentialRampToValueAtTime(0.001, now + dur);
+        o.connect(g); g.connect(ac.destination); o.start(now); o.stop(now + dur);
+      };
+      if (type === "jump") mk(320, 560, 0.14, "square", 0.06);
+      else if (type === "djump") mk(520, 820, 0.14, "square", 0.06);
+      else if (type === "pickup") { mk(660, 990, 0.09, "triangle", 0.07); }
+      else if (type === "hurt") mk(300, 90, 0.25, "sawtooth", 0.08);
+      else if (type === "shoot") mk(220, 160, 0.12, "sawtooth", 0.04);
+      else if (type === "win") { [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => mk(f, f, 0.18, "triangle", 0.07), i * 110)); }
+      else if (type === "lose") mk(220, 70, 0.6, "sawtooth", 0.08);
+    } catch (e) {}
+  };
+
+  const endGame = (m) => {
+    const s = stateRef.current;
+    setStats({ atp: s.atp, total: s.totalOrbsAll, time: Math.floor(s.frames / 60), worldId: s.worldId });
+    sound(m === "win" ? "win" : "lose");
+    setModeBoth(m);
+  };
+
+
+  const enterTransition = (next) => {
+    const s = stateRef.current;
+    const nextWorld = next || 2;
+    pendingCarryRef.current = { atp: s.atp, totalOrbsAll: s.totalOrbsAll, frames: s.frames, next: nextWorld };
+    setTransitionTo(nextWorld);
+    setModeBoth("transition");
+  };
+  const beginNextWorld = () => {
+    reset(pendingCarryRef.current.next, pendingCarryRef.current);
+    setModeBoth("play");
+  };
+
+  useEffect(() => {
+    reset();
+    const gctx = gameRef.current.getContext("2d");
+    const tctx = textRef.current.getContext("2d");
+    gctx.imageSmoothingEnabled = false;
+    tctx.imageSmoothingEnabled = true;
+
+    const keys = {};
+    const triggerJump = pressJump;
+
+    const onDown = (e) => {
+      const k = e.key.toLowerCase();
+      // Title screen: any non-modifier key starts the game
+      if (modeRef.current === "title") {
+        const skip = ["control","shift","alt","meta","tab","capslock","escape","f1","f2","f3","f4","f5","f6","f7","f8","f9","f10","f11","f12"];
+        if (!skip.includes(k) && !e.repeat) { start(); return; }
+      }
+      // ESC: pause → world select; submenus → title
+      if (k === "escape") {
+        if (modeRef.current === "play") { setModeBoth("worldselect"); return; }
+        if (["worldselect","howtoplay","options"].includes(modeRef.current)) { setModeBoth("title"); return; }
+      }
+      // Advance NPC dialogue with E / Enter
+      if (modeRef.current === "play" && (k === "e" || k === "enter" || k === "z") && !e.repeat) {
+        if (stateRef.current && stateRef.current.dialogT > 0) { stateRef.current.dialogT = 0; e.preventDefault(); return; }
+      }
+      if ([" ", "arrowup", "arrowleft", "arrowright", "arrowdown", "w", "a", "d", "s"].includes(k)) e.preventDefault();
+      if ((k === " " || k === "arrowup" || k === "w") && !e.repeat) triggerJump();
+      if (k === "arrowleft" || k === "a") inputRef.current.left = true;
+      if (k === "arrowright" || k === "d") inputRef.current.right = true;
+      if (k === "arrowup" || k === "w") inputRef.current.up = true;
+      if (k === "arrowdown" || k === "s") inputRef.current.down = true;
+      keys[k] = true;
+    };
+    const onUp = (e) => {
+      const k = e.key.toLowerCase();
+      if (k === "arrowleft" || k === "a") inputRef.current.left = false;
+      if (k === "arrowright" || k === "d") inputRef.current.right = false;
+      if (k === "arrowup" || k === "w") inputRef.current.up = false;
+      if (k === "arrowdown" || k === "s") inputRef.current.down = false;
+      keys[k] = false;
+    };
+    window.addEventListener("keydown", onDown, { passive: false });
+    window.addEventListener("keyup", onUp);
+
+    const SPR = spriteRef.current;
+    let raf, last = performance.now();
+
+    const spawnP = (s, x, y, color, n, spread) => { for (let i = 0; i < n; i++) s.particles.push({ x, y, vx: (Math.random() - 0.5) * spread, vy: (Math.random() - 1) * spread, life: 22, max: 22, color, size: 1 }); };
+
+    const damage = (s, fromX, fell) => {
+      const p = s.player;
+      if (p.invuln > 0 && !fell) return;
+      p.hearts--; p.invuln = 90; s.hitFlash = 14; sound("hurt");
+      spawnP(s, p.x + p.w / 2, p.y + p.h / 2, "#ff8a8a", 12, 2.6);
+      if (fell) {
+        const sp = s.checkpoint || s.world.spawn; p.x = sp.x; p.y = sp.y - 8; p.vx = 0; p.vy = 0;
+        const wr0 = s.world.rows || ROWS;
+        s.cam = Math.max(0, Math.min(s.world.cols * TILE - VW, p.x - VW / 2));
+        s.camY = Math.max(0, Math.min(Math.max(0, wr0 * TILE - VH), p.y - VH / 2));
+      }
+      else { const dir = Math.sign(p.x + p.w / 2 - fromX) || 1; p.vx = dir * 2.6; p.vy = -2.8; }
+      if (p.hearts <= 0) {
+        if (s.worldId >= 2) {
+          const sp = s.checkpoint || s.world.spawn;
+          p.x = sp.x; p.y = sp.y - 8; p.vx = 0; p.vy = 0;
+          p.hearts = 3; p.invuln = 90;
+          const wr = s.world.rows || ROWS;
+          s.cam = Math.max(0, Math.min(s.world.cols * TILE - VW, p.x - VW / 2));
+          s.camY = Math.max(0, Math.min(Math.max(0, wr * TILE - VH), p.y - VH / 2));
+          spawnP(s, p.x + p.w / 2, p.y + p.h / 2, "#caa6ff", 16, 3);
+          sound("djump");
+        } else {
+          endGame("lose");
+        }
+      }
+    };
+
+    const collide = (world, p, axis) => {
+      const c0 = Math.floor(p.x / TILE), c1 = Math.floor((p.x + p.w - 0.01) / TILE);
+      const r0 = Math.floor(p.y / TILE), r1 = Math.floor((p.y + p.h - 0.01) / TILE);
+      for (let c = c0; c <= c1; c++) for (let r = r0; r <= r1; r++) {
+        if (!isSolid(world, c, r)) continue;
+        const tx = c * TILE, ty = r * TILE;
+        if (axis === "x") { if (p.vx > 0) p.x = tx - p.w; else if (p.vx < 0) p.x = tx + TILE; p.vx = 0; }
+        else { if (p.vy > 0) { p.y = ty - p.h; if (!p.onGround && p.vy > 2.4) { p.land = 8; spawnP(s, p.x + p.w / 2, p.y + p.h, "#cdeaa0", 6, 1.4); } p.onGround = true; } else if (p.vy < 0) p.y = ty + TILE; p.vy = 0; }
+      }
+    };
+    const circleHit = (p, cx, cy, rad) => { const nx = Math.max(p.x, Math.min(cx, p.x + p.w)), ny = Math.max(p.y, Math.min(cy, p.y + p.h)); const dx = cx - nx, dy = cy - ny; return dx * dx + dy * dy < rad * rad; };
+    const aabbHit = (p, ex, ey, ew, eh) => p.x < ex + ew && p.x + p.w > ex && p.y < ey + eh && p.y + p.h > ey;
+
+    let s; 
+
+    const step = () => {
+      s = stateRef.current;
+      const { world } = s, p = s.player;
+      s.t += 1 / 60; s.frames++;
+      const left = inputRef.current.left, right = inputRef.current.right;
+      const acc = p.onGround ? MOVE : AIR_MOVE;
+      if (left) { p.vx -= acc; p.facing = -1; }
+      if (right) { p.vx += acc; p.facing = 1; }
+      if (!left && !right && p.onGround) p.vx *= FRICTION;
+      if (s.worldId === 2 && world.currents) {
+        const ccol = Math.floor((p.x + p.w / 2) / TILE);
+        for (const cur of world.currents) if (ccol >= cur.c0 && ccol <= cur.c1) p.vx += cur.dir * cur.force;
+      }
+      p.vx = Math.max(-MAX_VX, Math.min(MAX_VX, p.vx));
+
+      if (p.coyote > 0) p.coyote--;
+      if (p.buffer > 0) p.buffer--;
+      if (p.buffer > 0 && (p.onGround || p.coyote > 0)) { p.vy = JUMP_V; p.buffer = 0; p.coyote = 0; p.onGround = false; p.jumps = 1; sound("jump"); spawnP(s, p.x + p.w / 2, p.y + p.h, "#cdeaa0", 5, 1.2); }
+      else if (p.buffer > 0 && p.jumps >= 1 && p.jumps < 2 && !p.onGround) { p.vy = DJUMP_V; p.buffer = 0; p.jumps = 2; sound("djump"); spawnP(s, p.x + p.w / 2, p.y + p.h, "#9fe0ff", 7, 1.8); }
+      
+      const pcx = Math.floor((p.x + p.w / 2) / TILE);
+      const onLadder = isLadder(world, pcx, Math.floor(p.y / TILE)) || isLadder(world, pcx, Math.floor((p.y + p.h - 0.01) / TILE));
+      if (onLadder && (inputRef.current.up || inputRef.current.down)) {
+        p.vy = inputRef.current.up ? -LADDER_SPEED : LADDER_SPEED;
+        p.onGround = false; p.jumps = 0; p.coyote = COYOTE;
+      } else {
+        p.vy = Math.min(MAX_FALL, p.vy + GRAV);
+      }
+      p.x += p.vx; collide(world, p, "x");
+      p.y += p.vy; p.onGround = false; collide(world, p, "y");
+      if (p.onGround) { p.jumps = 0; p.coyote = COYOTE; }
+      if (p.land > 0) p.land--;
+      const worldRows = world.rows || ROWS;
+      if (p.y > worldRows * TILE + 30) damage(s, 0, true);
+
+      p.anim += Math.abs(p.vx) * 0.22 + 0.05;
+      p.blink = (p.blink + 1) % 220;
+      if (p.invuln > 0) p.invuln--;
+      if (s.hitFlash > 0) s.hitFlash--;
+      for (let i = s.scorePopups.length - 1; i >= 0; i--) {
+        s.scorePopups[i].y -= 0.55; s.scorePopups[i].life--;
+        if (s.scorePopups[i].life <= 0) s.scorePopups.splice(i, 1);
+      }
+
+      p.x = Math.max(0, Math.min(world.cols * TILE - p.w, p.x));
+      const target = p.x + p.w / 2 - VW / 2;
+      s.cam += (target - s.cam) * 0.12;
+      s.cam = Math.max(0, Math.min(world.cols * TILE - VW, s.cam));
+
+      const targetY = p.y + p.h / 2 - VH / 2;
+      s.camY += (targetY - s.camY) * 0.12;
+      s.camY = Math.max(0, Math.min(Math.max(0, worldRows * TILE - VH), s.camY));
+
+      for (const o of world.orbs) { if (o.got) continue; if (Math.abs(o.x - (p.x + p.w / 2)) < 9 && Math.abs(o.y - (p.y + p.h / 2)) < 10) { o.got = true; s.atp++; sound("pickup"); spawnP(s, o.x, o.y, "#ffe07a", 8, 2.2); s.scorePopups.push({ x: o.x, y: o.y - 4, life: 38, max: 38 }); } }
+
+      const nearType = { macro: false, neut: false, tcell: false, fdc: false, plasma: false };
+
+      for (const e of world.enemies) {
+        e.t += 1 / 60;
+        const near = Math.abs(e.x - (p.x + p.w / 2)) < 74 && Math.abs(e.y - p.y) < 40;
+        if (near) nearType[e.type] = true;
+        if (e.type === "macro") {
+          e.x += e.vx; if (e.x < e.minX || e.x > e.maxX) { e.vx *= -1; e.x = Math.max(e.minX, Math.min(e.maxX, e.x)); }
+          e.facing = e.vx >= 0 ? 1 : -1;
+          if (circleHit(p, e.x, e.y, e.r - 2)) damage(s, e.x);
+        } else if (e.type === "neut") {
+          const dx = (p.x + p.w / 2) - (e.x + e.w / 2);
+          e.chase = Math.abs(dx) < 72 && Math.abs(p.y - e.y) < 28;
+          if (e.chase) { const dir = Math.sign(dx) || 1; e.x += dir * 0.95; e.facing = dir; e.x = Math.max(e.minX - 16, Math.min(e.maxX + 16, e.x)); }
+          else { e.x += e.vx; if (e.x < e.minX || e.x > e.maxX) e.vx *= -1; e.facing = e.vx >= 0 ? 1 : -1; }
+          if (aabbHit(p, e.x, e.y, e.w, e.h)) damage(s, e.x + e.w / 2);
+        } else if (e.type === "tcell") {
+          if (near) {
+            e.dir = Math.sign((p.x + p.w / 2) - e.x) || -1;
+            e.cd--; e.charge = Math.max(0, 1 - e.cd / 30);
+            if (e.cd <= 0) { world.cytokines.push({ x: e.x + e.dir * 8, y: e.y, vx: e.dir * 1.4, t: 0, life: 240 }); sound("shoot"); e.cd = 110; e.charge = 0; }
+          } else { e.charge = 0; }
+        }
+      }
+
+      if (s.worldId === 2) {
+        // antigen pickup (carry one at a time)
+        for (const a of world.antigens) {
+          if (a.got) continue;
+          if (p.carry == null && Math.abs(a.x - (p.x + p.w / 2)) < 11 && Math.abs(a.y - (p.y + p.h / 2)) < 12) {
+            a.got = true; p.carry = a.type; sound("pickup");
+            spawnP(s, a.x, a.y, ANTIGEN_TYPES[a.type].color, 8, 2.2);
+          }
+        }
+        for (const f of world.fdcs) {
+          const near = Math.abs(f.x - (p.x + p.w / 2)) < 22 && Math.abs(f.y - p.y) < 26;
+          if (near) nearType.fdc = true;
+          if (!f.delivered && p.carry === f.type && Math.abs(f.x - (p.x + p.w / 2)) < 18 && Math.abs(f.y - p.y) < 22) {
+            f.delivered = true; p.carry = null; s.atp += 3;
+            s.banner = ANTIGEN_FACTS[f.type]; s.bannerT = 440; s.primed.fdc = false;
+            spawnP(s, f.x, f.y, ANTIGEN_TYPES[f.type].color, 18, 3);
+            sound("pickup"); setTimeout(() => sound("pickup"), 90);
+          }
+        }
+        // HEV checkpoints
+        let nearHev = false;
+        for (const hev of world.hevs) {
+          const inX = (p.x + p.w / 2) > hev.x - 2 && (p.x + p.w / 2) < hev.x + 10;
+          const inY = p.y + p.h > hev.yTop && p.y < hev.yTop + hev.h;
+          if (inX && inY) {
+            nearHev = true;
+            const col = Math.floor(hev.x / TILE);
+            const groundY = (world.surfaceRow[col] != null ? world.surfaceRow[col] * TILE : 9 * TILE) - 16;
+            if (!hev.touched) spawnP(s, hev.x + 4, groundY, "#caa6ff", 8, 2.0);
+            hev.touched = true;
+            s.checkpoint = { x: hev.x, y: groundY };
+          }
+        }
+        if (nearHev) {
+          if (s.primed.hev) {
+            s.banner = HEV_FACTS[s.factIndex.hev % HEV_FACTS.length];
+            s.factIndex.hev++; s.bannerT = 360; s.primed.hev = false;
+            spawnP(s, p.x + p.w / 2, p.y + p.h / 2, "#caa6ff", 10, 2.4);
+            sound("djump");
+          }
+        } else s.primed.hev = true;
+        // plasma cells: medullary-cord proximity facts + antibody secretion
+        for (const pl of world.plasmas) {
+          pl.t += 1 / 60;
+          const near = Math.abs(pl.x - (p.x + p.w / 2)) < 74 && Math.abs(pl.y - p.y) < 40;
+          if (near) nearType.plasma = true;
+          pl.cd--;
+          if (near && pl.cd <= 0) {
+            const dir = Math.sign((p.x + p.w / 2) - pl.x) || 1;
+            world.cytokines.push({ x: pl.x + dir * 8, y: pl.y, vx: dir * 1.2, t: 0, life: 240, ab: true });
+            sound("shoot"); pl.cd = 130;
+          }
+        }
+        // zone-entry "architecture" banners
+        const zb = biomeAt(p.x + p.w / 2, world.biomes);
+        const zi = world.biomes.indexOf(zb);
+        if (zi >= 0 && !world.zonesSeen[zi]) {
+          world.zonesSeen[zi] = true;
+          s.banner = ZONE_FACTS2[zi]; s.bannerT = 420;
+        }
+      }
+      if (s.worldId === 3) {
+        for (const rbc of world.rbcs) {
+          if (rbc.got) continue;
+          if (p.carry == null && Math.abs(rbc.x - (p.x + p.w / 2)) < 11 && Math.abs(rbc.y - (p.y + p.h / 2)) < 12) {
+            rbc.got = true; p.carry = "rbc"; p.carryMeta = rbc.fact; sound("pickup");
+            spawnP(s, rbc.x, rbc.y, "#e8556a", 8, 2.2);
+          }
+        }
+        const st = world.rpStation;
+        if (p.carry === "rbc" && Math.abs(st.x - (p.x + p.w / 2)) < 18 && Math.abs(st.y - p.y) < 22) {
+          p.carry = null; s.atp += 3;
+          world.rbcsDelivered++;
+          if (world.rbcsDelivered >= world.rbcs.length) {
+            world.gate.open = true;   // visual only — HEV gate shows open for education
+            world.exit.active = true; // the actual unlock: exit portal becomes interactive
+            s.banner = RBC_DONE_FACT; s.bannerT = 580;
+            s.objective = { x: world.exit.x, y: world.exit.y, label: "Splenic Vein — EXIT" };
+            // burst at the exit portal location (now unlocked below on sinusoid floor)
+            spawnP(s, world.exit.x, world.exit.y, "#a6d8f2", 22, 3.8);
+            spawnP(s, world.exit.x, world.exit.y, "#9fe06a", 14, 2.8);
+            // also burst at gate for visual flair
+            const gateX = world.gate.c0 * TILE + 8;
+            for (let gi = 0; gi < 3; gi++) {
+              const gy2 = (world.gate.r1 * 0.25 + gi * world.gate.r1 * 0.25) * TILE;
+              spawnP(s, gateX, gy2, "#9fe06a", 14, 3.2);
+            }
+            sound("djump"); setTimeout(() => sound("djump"), 160);
+          } else {
+            s.banner = RBC_FACTS[p.carryMeta]; s.bannerT = 440;
+          }
+          spawnP(s, st.x, st.y, "#e8556a", 18, 3);
+          sound("pickup"); setTimeout(() => sound("pickup"), 90);
+          p.carryMeta = null;
+        }
+        // one-time explanation when the player first reaches the closed gate
+        if (!world.gate.open && !world.gateSeen) {
+          const gx = world.gate.c0 * TILE + TILE / 2, gy = 19 * TILE;
+          if (Math.abs(gx - (p.x + p.w / 2)) < 20 && Math.abs(gy - p.y) < 30) {
+            world.gateSeen = true;
+            s.banner = GATE_CLOSED_FACT; s.bannerT = 420;
+          }
+        }
+        // open/closed circulation explanation pop-ups, one per shaft entrance
+        for (let i = 0; i < world.routeMarkers.length; i++) {
+          const rm = world.routeMarkers[i];
+          if (!world.routeSeen[i] && Math.abs(rm.x - (p.x + p.w / 2)) < 14 && Math.abs(rm.y - p.y) < 18) {
+            world.routeSeen[i] = true;
+            s.banner = ROUTE_FACTS3[i]; s.bannerT = 400;
+          }
+        }
+      }
+
+      if (world.zonesSeen) {
+        const zb2 = zoneFor(world, p.x + p.w / 2, p.y + p.h / 2);
+        const zi2 = world.biomes.indexOf(zb2);
+        const ZF = s.worldId === 3 ? ZONE_FACTS3 : ZONE_FACTS2;
+        if (zi2 >= 0 && !world.zonesSeen[zi2]) {
+          world.zonesSeen[zi2] = true;
+          s.banner = ZF[zi2]; s.bannerT = 420;
+          s.checkpoint = { x: p.x, y: p.y };
+          spawnP(s, p.x + p.w / 2, p.y + p.h / 2, "#caa6ff", 10, 2.2);
+        }
+      }
+
+      const CODEXW = s.worldId === 3 ? CODEX3 : s.worldId === 2 ? CODEX2 : CODEX1;
+      const factTypes = s.worldId === 3 ? ["tcell", "macro"] : s.worldId === 2 ? ["macro", "neut", "tcell", "fdc", "plasma"] : ["macro", "neut", "tcell"];
+      for (const ty of factTypes) {
+        if (nearType[ty]) {
+          if (s.primed[ty]) {
+            s.banner = CODEXW[ty][s.factIndex[ty]];
+            s.factIndex[ty] = (s.factIndex[ty] + 1) % CODEXW[ty].length;
+            s.bannerT = 360;
+            s.primed[ty] = false;
+          }
+        } else {
+          s.primed[ty] = true;
+        }
+      }
+      for (let i = world.cytokines.length - 1; i >= 0; i--) {
+        const k = world.cytokines[i]; k.x += k.vx; k.t += 1 / 60; k.life--;
+        if (k.life <= 0 || k.x - s.cam < -10 || k.x - s.cam > VW + 10) { world.cytokines.splice(i, 1); continue; }
+        if (circleHit(p, k.x, k.y, 4)) { damage(s, k.x); world.cytokines.splice(i, 1); }
+      }
+      for (const ab of world.antibodies) { ab.t += 1 / 60; ab.y = ab.baseY + Math.sin(ab.t * 1.6 + ab.phase) * ab.amp; if (circleHit(p, ab.x, ab.y, 6)) damage(s, ab.x); }
+
+      const npcList = world.npcs || [world.npc];
+      for (const npc of npcList) {
+        if (Math.abs((npc.x + 8) - (p.x + p.w / 2)) < 24 && Math.abs(npc.y - p.y) < 26) {
+          if (npc.clearsObjective) s.objective = npc.nextObjective || null;
+          if (s.dialogT <= 0) { s.dialog = npc.lines[npc.line]; s.activeNpcName = npc.name; npc.line = (npc.line + 1) % npc.lines.length; s.dialogT = 380; }
+        }
+      }
+      if (s.dialogT > 0) s.dialogT--;
+      // Pause banner countdown while NPC dialogue is on screen to avoid crowding
+      if (s.bannerT > 0 && s.dialogT <= 0) s.bannerT--;
+
+      for (const pa of s.particles) { pa.x += pa.vx; pa.y += pa.vy; pa.vy += 0.12; pa.life--; }
+      s.particles = s.particles.filter((pa) => pa.life > 0);
+      for (const b of s.bubbles) { b.y -= b.sp; b.x += Math.sin(s.t * 1.5 + b.ph) * 0.2; if (b.y < s.camY - 4) { b.y = s.camY + VH + 4; b.x = s.cam + Math.random() * VW; } }
+
+      if ((s.worldId !== 3 || world.exit.active) && Math.abs(world.exit.x - (p.x + p.w / 2)) < 15 && Math.abs(world.exit.y - p.y) < 22) {
+        if (world.exit.kind === "portal") enterTransition(world.exit.next);
+        else endGame("win");
+      }
+    };
+
+
+    const renderGame = () => {
+      s = stateRef.current;
+      const { world } = s, p = s.player, cam = s.cam, camY = s.camY || 0;
+      const biome = zoneFor(world, cam + VW / 2, camY + VH / 2);
+      const zoneIdx = world.biomes.indexOf(biome);
+      gctx.imageSmoothingEnabled = false;
+
+      const grad = gctx.createLinearGradient(0, 0, 0, VH);
+      grad.addColorStop(0, biome.sky[0]); grad.addColorStop(1, biome.sky[1]);
+      gctx.fillStyle = grad; gctx.fillRect(0, 0, VW, VH);
+
+
+      gctx.globalAlpha = 0.06; gctx.fillStyle = "#fff";
+      gctx.beginPath(); gctx.moveTo(VW * 0.3, 0); gctx.lineTo(VW * 0.5, 0); gctx.lineTo(VW * 0.7, VH); gctx.lineTo(VW * 0.1, VH); gctx.closePath(); gctx.fill();
+      gctx.globalAlpha = 1;
+
+
+      for (let i = 0; i < 14; i++) {
+        const bx = i * 150 - cam * 0.16, wx = ((bx % (VW + 100)) + (VW + 100)) % (VW + 100) - 50, by = 16 + (i * 57) % 130;
+        gctx.globalAlpha = 0.1; gctx.fillStyle = "#fff";
+        gctx.beginPath(); gctx.arc(wx, by, 16 + (i % 3) * 7, 0, Math.PI * 2); gctx.fill();
+      }
+
+      for (let i = 0; i < 22; i++) {
+        const bx = i * 92 - cam * 0.42, wx = ((bx % (VW + 120)) + (VW + 120)) % (VW + 120) - 60, by = 22 + (i * 71) % 130, rr = 6 + (i % 3) * 2;
+        gctx.globalAlpha = 0.5; gctx.fillStyle = biome.accent;
+        gctx.beginPath(); gctx.ellipse(wx, by, rr, rr * 0.78, 0, 0, Math.PI * 2); gctx.fill();
+        gctx.fillStyle = biome.sky[1];
+        gctx.beginPath(); gctx.ellipse(wx, by, rr * 0.45, rr * 0.36, 0, 0, Math.PI * 2); gctx.fill();
+      }
+      gctx.globalAlpha = 1;
+
+      // bubbles
+      for (const b of s.bubbles) {
+        const x = b.x - cam * 0.7; if (x < -4 || x > VW + 4) continue;
+        gctx.globalAlpha = 0.22; gctx.strokeStyle = "#fff"; gctx.lineWidth = 1;
+        gctx.beginPath(); gctx.arc(x, b.y, b.r, 0, Math.PI * 2); gctx.stroke();
+      }
+      gctx.globalAlpha = 1;
+
+      if (s.worldId === 2 && zoneIdx >= 0) drawZoneBackdrop(gctx, cam, biome, zoneIdx, s.t);
+
+      if (s.worldId === 3 && zoneIdx >= 0) drawZoneBackdrop(gctx, cam, biome, [1, 2, 3, 0][zoneIdx], s.t);
+
+
+      const startC = Math.floor(cam / TILE), endC = startC + VW / TILE + 2;
+      const startR = Math.floor(camY / TILE), endR = startR + Math.ceil(VH / TILE) + 1;
+      for (let c = startC; c <= endC; c++) for (let r = startR; r <= endR; r++) {
+        if (!isSolid(world, c, r)) {
+          if (isLadder(world, c, r)) {
+            const lBiome = zoneFor(world, c * TILE, r * TILE);
+            drawLadderRung(gctx, c * TILE - cam, r * TILE - camY, lBiome.hair);
+          }
+          continue;
+        }
+        const cBiome = zoneFor(world, c * TILE, r * TILE);
+        const isTrab = world.trabeculae && world.trabeculae.has(c);
+        const tb = cBiome.tile, x = c * TILE - cam, y = r * TILE - camY;
+        const tg = gctx.createLinearGradient(0, y, 0, y + TILE);
+        if (isTrab) { tg.addColorStop(0, cBiome.mesh || tb[1]); tg.addColorStop(1, tb[1]); }
+        else { tg.addColorStop(0, tb[0]); tg.addColorStop(1, tb[2]); }
+        gctx.fillStyle = tg; gctx.fillRect(x, y, TILE, TILE);
+        if ((c * 3 + r * 5) % 4 === 0) { gctx.fillStyle = tb[2]; gctx.fillRect(x + 3, y + 6, 2, 2); }
+        if ((c * 7 + r * 2) % 5 === 0) { gctx.fillStyle = tb[1]; gctx.globalAlpha = 0.5; gctx.fillRect(x + 10, y + 10, 2, 2); gctx.globalAlpha = 1; }
+        if (!isSolid(world, c, r - 1)) {
+          gctx.fillStyle = tb[3]; gctx.fillRect(x, y, TILE, 2);
+          gctx.fillStyle = tb[1]; gctx.fillRect(x, y + 2, TILE, 2);
+          gctx.fillStyle = cBiome.hair;
+          for (let h = 1; h < TILE; h += 3) { const sway = Math.round(Math.sin(s.t * 2.4 + c + h) * 1.5); gctx.fillRect(x + h + sway, y - 3, 1, 3); }
+        }
+      }
+
+      // orbs
+      for (const o of world.orbs) { if (o.got) continue; if (o.x - cam < -10 || o.x - cam > VW + 10) continue; drawOrb(gctx, o.x - cam, o.y - camY, s.t); }
+
+      if (s.worldId === 3) {
+        const art = world.arteriole;
+        if (art.x - cam > -16 && art.x - cam < VW + 16) drawArteriole(gctx, art.x - cam, art.yTop - camY, art.h, s.t);
+        for (const rbc of world.rbcs) {
+          if (rbc.got) continue;
+          if (rbc.x - cam < -10 || rbc.x - cam > VW + 10) continue;
+          drawRBC(gctx, rbc.x - cam, rbc.y - camY, s.t);
+        }
+        // pulsing arrow above the closed-tube entrance (col 70, row 12) while RBC 3 is uncollected
+        if (!world.rbcs[2].got) {
+          const arrowX = 70 * TILE + TILE / 2 - cam, arrowY = 12 * TILE - camY - 6;
+          if (arrowX > -10 && arrowX < VW + 10) {
+            const pulse = 0.45 + Math.abs(Math.sin(s.t * 3.5)) * 0.55;
+            gctx.save(); gctx.globalAlpha = pulse;
+            gctx.fillStyle = "#e8556a";
+            gctx.beginPath();
+            gctx.moveTo(arrowX, arrowY + 7);
+            gctx.lineTo(arrowX - 5, arrowY);
+            gctx.lineTo(arrowX + 5, arrowY);
+            gctx.closePath(); gctx.fill();
+            gctx.restore();
+          }
+        }
+        const g = world.gate;
+        const gx = g.c0 * TILE - cam, gyTop = g.r0 * TILE - camY, gh = (g.r1 - g.r0 + 1) * TILE;
+        if (gx > -TILE && gx < VW + TILE) drawHEVGate(gctx, gx, gyTop, gh, s.t, g.open);
+      }
+
+      // npcs
+      const npcList = world.npcs || [world.npc];
+      for (const npc of npcList) {
+        const nx = npc.x - cam, ny = npc.y - camY;
+        if (nx > -20 && nx < VW + 20 && ny > -20 && ny < VH + 20) {
+          const bob = Math.round(Math.sin(s.t * 2 + npc.x * 0.02) * 1);
+          if (npc.decor === "antibody") drawAntibody(gctx, nx + 8, ny - 10 + bob, s.t);
+          drawSprite(gctx, SPR[npc.sprite], nx, ny + bob, false);
+        }
+      }
+
+      if (s.worldId === 2) {
+        for (const a of world.antigens) {
+          if (a.got) continue;
+          if (a.x - cam < -10 || a.x - cam > VW + 10) continue;
+          drawAntigen(gctx, a.x - cam, a.y - camY, s.t, ANTIGEN_TYPES[a.type]);
+        }
+        for (const f of world.fdcs) {
+          if (f.x - cam < -26 || f.x - cam > VW + 26) continue;
+          drawFDC(gctx, f.x - cam, f.y - camY, s.t, ANTIGEN_TYPES[f.type].color, f.delivered);
+        }
+        for (const hev of world.hevs) {
+          if (hev.x - cam < -16 || hev.x - cam > VW + 16) continue;
+          drawHEV(gctx, hev.x - cam, hev.yTop - camY, hev.h, s.t, hev.touched);
+        }
+        for (const pl of world.plasmas) {
+          if (pl.x - cam < -20 || pl.x - cam > VW + 20) continue;
+          drawPlasmaCell(gctx, pl.x - cam, pl.y - camY, pl.t, Math.sin(pl.t) >= 0 ? 1 : -1);
+        }
+      }
+
+      {
+        const ex = world.exit;
+        if (ex.x - cam > -30 && ex.x - cam < VW + 30) {
+          const isPortal = ex.kind === "portal";
+          const locked = s.worldId === 3 && !ex.active;
+          if (locked) {
+            // Sealed exit — dim pulsing ring to hint "something is here"
+            const sx = ex.x - cam, sy = ex.y - camY;
+            drawGlow(gctx, sx, sy, 12, "rgba(100,120,160,0.3)", 0.25 + Math.sin(s.t * 2) * 0.12);
+            gctx.save();
+            gctx.globalAlpha = 0.38 + Math.sin(s.t * 2.5) * 0.1;
+            gctx.strokeStyle = "#6688aa"; gctx.lineWidth = 2;
+            gctx.beginPath(); gctx.arc(sx, sy, 8, 0, Math.PI * 2); gctx.stroke();
+            gctx.fillStyle = "#3a4a5a";
+            gctx.beginPath(); gctx.arc(sx, sy, 4, 0, Math.PI * 2); gctx.fill();
+            gctx.restore();
+          } else {
+            const glow = isPortal ? "rgba(170,140,255,0.7)" : "rgba(140,210,255,0.7)";
+            const fillA = isPortal ? "#cfa6f2" : "#a6d8f2";
+            const fillB = isPortal ? "#9a78cf" : "#6fa8c8";
+            const ring = isPortal ? "#7a5cb0" : "#4f7a98";
+            drawPortal(gctx, ex.x - cam, ex.y - camY, s.t, glow, fillA, fillB, ring);
+            gctx.globalAlpha = 1;
+          }
+        }
+      }
+
+      for (const e of world.enemies) {
+        const sx = (e.type === "neut" ? e.x : e.x) - cam;
+        if (sx < -44 || sx > VW + 44) continue;
+        if (e.type === "macro") drawMacrophage(gctx, e.x - cam, e.y - camY, e.r, e.t, e.facing);
+        else if (e.type === "neut") {
+          if (e.chase) { gctx.fillStyle = "#ffe25a"; gctx.fillRect(e.x - cam + 9, e.y - camY - 6, 1, 3); gctx.fillRect(e.x - cam + 9, e.y - camY - 2, 1, 1); }
+          drawSprite(gctx, SPR.neut[Math.floor(e.t * 6) % 2], e.x - cam, e.y - camY, e.facing < 0);
+        } else drawTcell(gctx, e.x - cam, e.y - camY, e.t, e.charge);
+      }
+      for (const k of world.cytokines) {
+        if (k.x - cam < -10 || k.x - cam > VW + 10) continue;
+        if (k.ab) drawAntibody(gctx, k.x - cam, k.y - camY, k.t); else drawCytokine(gctx, k.x - cam, k.y - camY, k.t);
+      }
+      for (const ab of world.antibodies) { if (ab.x - cam < -20 || ab.x - cam > VW + 20) continue; drawAntibody(gctx, ab.x - cam, ab.y - camY, ab.t); }
+
+      // player
+      let spr;
+      if (!p.onGround) spr = SPR.jump;
+      else if (Math.abs(p.vx) > 0.3) spr = SPR.run[Math.floor(p.anim) % 2];
+      else spr = p.blink > 214 ? SPR.blink : SPR.idle[Math.floor(s.t * 2) % 2];
+      let sx = 1, sy = 1;
+      if (p.land > 0) { const k = p.land / 8; sx = 1 + 0.28 * k; sy = 1 - 0.26 * k; }
+      else if (!p.onGround) { sy = 1 + Math.max(-0.12, Math.min(0.18, -p.vy * 0.03)); sx = 2 - sy; }
+      const flicker = p.invuln > 0 && Math.floor(s.t * 20) % 2 === 0;
+      if (!flicker) {
+        drawGlow(gctx, p.x - cam + p.w / 2, p.y - camY + p.h / 2, 14, "rgba(140,240,110,0.5)", 0.4);
+        drawFlagellum(gctx, p.x - cam + p.w / 2, p.y - camY + p.h * 0.7, p.facing, s.t);
+        drawSprite(gctx, spr, p.x - cam - 2, p.y - camY - 2, p.facing < 0, sx, sy);
+      }
+
+      // particles
+      for (const pa of s.particles) { gctx.globalAlpha = Math.max(0, pa.life / pa.max); gctx.fillStyle = pa.color; gctx.fillRect(Math.round(pa.x - cam), Math.round(pa.y - camY), pa.size, pa.size); }
+      gctx.globalAlpha = 1;
+
+      if (s.worldId === 2 && p.carry != null) {
+        drawAntigen(gctx, p.x - cam + p.w / 2, p.y - camY - 10 + Math.sin(s.t * 3) * 2, s.t, ANTIGEN_TYPES[p.carry]);
+      }
+      if (s.worldId === 3 && p.carry === "rbc") {
+        drawRBC(gctx, p.x - cam + p.w / 2, p.y - camY - 10 + Math.sin(s.t * 3) * 2, s.t);
+      }
+
+      // vignette
+      const vg = gctx.createRadialGradient(VW / 2, VH / 2, 60, VW / 2, VH / 2, 175);
+      vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(0,0,0,0.42)");
+      gctx.fillStyle = vg; gctx.fillRect(0, 0, VW, VH);
+
+      // damage edge flash
+      if (s.hitFlash > 0) {
+        const fa = (s.hitFlash / 14) * 0.6;
+        const fg2 = gctx.createRadialGradient(VW / 2, VH / 2, 22, VW / 2, VH / 2, VH * 0.95);
+        fg2.addColorStop(0, "rgba(232,85,106,0)");
+        fg2.addColorStop(0.55, "rgba(232,85,106," + (fa * 0.25) + ")");
+        fg2.addColorStop(1, "rgba(232,85,106," + fa + ")");
+        gctx.fillStyle = fg2; gctx.fillRect(0, 0, VW, VH);
+      }
+    };
+
+    const renderText = () => {
+      s = stateRef.current;
+      const { world } = s, p = s.player, cam = s.cam, camY = s.camY || 0;
+      tctx.clearRect(0, 0, TW, TH);
+      const wx = (x) => (x - cam) * S, wy = (y) => (y - camY) * S;
+
+
+      tctx.textAlign = "center"; tctx.textBaseline = "alphabetic";
+      tctx.font = "22px 'VT323', monospace";
+      const labelFor = (e, name, topY) => {
+        const lx = wx(e.x + (e.type === "neut" ? e.w / 2 : 0)), ly = wy(topY) - 8;
+        if (lx < -60 || lx > TW + 60) return;
+        const near = Math.abs(e.x - (p.x + p.w / 2)) < 70 && Math.abs(e.y - p.y) < 70;
+        tctx.globalAlpha = near ? 0.95 : 0.32;
+        tctx.fillStyle = "#0a0a12"; tctx.fillText(name, lx + 1, ly + 1);
+        tctx.fillStyle = near ? "#ffe9a8" : "#e7d4dd"; tctx.fillText(name, lx, ly);
+      };
+      for (const e of world.enemies) {
+        if (e.type === "macro") labelFor(e, "Macrophage", e.y - e.r - 2);
+        else if (e.type === "neut") labelFor(e, "Neutrophil", e.y - 4);
+        else labelFor(e, "T-Cell", e.y - 14);
+      }
+      if (s.worldId === 2) {
+        for (const f of world.fdcs) labelFor(f, "Follicular DC", f.y - 14);
+        for (const pl of world.plasmas) labelFor(pl, "Plasma Cell", pl.y - 14);
+        for (const hev of world.hevs) labelFor({ x: hev.x + 4, type: "" }, "HEV", hev.yTop - 4);
+      }
+      if (s.worldId === 3) {
+        const g = world.gate;
+        labelFor({ x: g.c0 * TILE + 8, y: 19 * TILE, type: "" }, g.open ? "HEV \u2014 open" : "HEV \u2014 closed", 19 * TILE - 4);
+      }
+
+      {
+        const npcList = world.npcs || [world.npc];
+        for (const npc of npcList) {
+          const lx = wx(npc.x + 8), ly = wy(npc.y) - 12;
+          if (lx < -60 || lx > TW + 60) continue;
+          tctx.globalAlpha = 0.85; tctx.fillStyle = "#0a0a12"; tctx.fillText(npc.name, lx + 1, ly + 1);
+          tctx.fillStyle = "#aef0ff"; tctx.fillText(npc.name, lx, ly);
+        }
+      }
+ 
+      {
+        const ex = world.exit;
+        const lx = wx(ex.x), ly = wy(ex.y) - 30;
+        const exitLocked = s.worldId === 3 && !ex.active;
+        const exitLabel = exitLocked ? "LOCKED — deliver all RBCs" : ex.label;
+        const exitColor = exitLocked ? "rgba(100,120,180,0.7)" : "#ffc6dd";
+        tctx.globalAlpha = exitLocked ? 0.55 : 0.9;
+        tctx.font = exitLocked ? "18px 'VT323', monospace" : "22px 'VT323', monospace";
+        tctx.fillStyle = "#0a0a12"; tctx.fillText(exitLabel, lx + 1, ly + 1);
+        tctx.fillStyle = exitColor; tctx.fillText(exitLabel, lx, ly);
+        tctx.font = "22px 'VT323', monospace";
+      }
+      tctx.globalAlpha = 1;
+
+  
+      if (s.objective) {
+        const obj = s.objective;
+        const ox = wx(obj.x), oy = wy(obj.y);
+        const margin = 36;
+        const onScreen = ox > margin && ox < TW - margin && oy > margin && oy < TH - margin;
+        let ax, ay, angle;
+        if (onScreen) {
+          ax = ox; ay = oy - 38 - Math.sin(s.t * 4) * 5; angle = Math.PI / 2;
+        } else {
+          const cx = TW / 2, cy = TH / 2;
+          const pos = edgeArrowPos(cx, cy, ox - cx, oy - cy, TW, TH, margin);
+          ax = pos.x; ay = pos.y; angle = Math.atan2(oy - cy, ox - cx);
+        }
+        drawPointerArrow(tctx, ax, ay, angle, "#ffe07a");
+        tctx.font = "16px 'Press Start 2P', monospace"; tctx.textAlign = "center";
+        const ly2 = onScreen ? ay - 18 : ay + (Math.sin(angle) >= 0 ? 30 : -22);
+        tctx.fillStyle = "#0a0a12"; tctx.fillText(obj.label, ax + 1, ly2 + 1);
+        tctx.fillStyle = "#ffe07a"; tctx.fillText(obj.label, ax, ly2);
+        tctx.textAlign = "center";
+      }
+
+      // +1 score popups
+      if (s.scorePopups.length > 0) {
+        tctx.font = "26px 'VT323', monospace"; tctx.textAlign = "center";
+        for (const sp of s.scorePopups) {
+          const a = sp.life / sp.max;
+          const spx = (sp.x - cam) * S, spy = (sp.y - camY) * S;
+          if (spx < -30 || spx > TW + 30) continue;
+          tctx.globalAlpha = a;
+          tctx.fillStyle = "#0a0a12"; tctx.fillText("+1", spx + 2, spy + 2);
+          tctx.fillStyle = "#ffd34d"; tctx.fillText("+1", spx, spy);
+        }
+        tctx.globalAlpha = 1;
+      }
+
+      // ---- HUD ----
+      // arcade-style HUD panels
+      tctx.save();
+      tctx.globalAlpha = 0.62;
+      tctx.fillStyle = "#0a040e";
+      tctx.fillRect(10, 10, 216, 84);
+      tctx.fillRect(TW - 214, 10, 204, 58);
+      tctx.globalAlpha = 0.45;
+      tctx.strokeStyle = "#5a3a58";
+      tctx.lineWidth = 2;
+      tctx.strokeRect(10, 10, 216, 84);
+      tctx.strokeRect(TW - 214, 10, 204, 58);
+      // pixel corner accents — top-left panel
+      tctx.fillStyle = "#9fe06a"; tctx.globalAlpha = 0.7;
+      tctx.fillRect(10, 10, 6, 2); tctx.fillRect(10, 10, 2, 6);
+      tctx.fillRect(220, 10, 6, 2); tctx.fillRect(224, 10, 2, 6);
+      tctx.fillRect(10, 92, 6, 2); tctx.fillRect(10, 88, 2, 6);
+      tctx.fillRect(220, 92, 6, 2); tctx.fillRect(224, 88, 2, 6);
+      // pixel corner accents — ATP panel
+      tctx.fillRect(TW - 214, 10, 6, 2); tctx.fillRect(TW - 214, 10, 2, 6);
+      tctx.fillRect(TW - 12, 10, 6, 2); tctx.fillRect(TW - 10, 10, 2, 6);
+      tctx.fillRect(TW - 214, 66, 6, 2); tctx.fillRect(TW - 214, 62, 2, 6);
+      tctx.fillRect(TW - 12, 66, 6, 2); tctx.fillRect(TW - 10, 62, 2, 6);
+      tctx.restore();
+      // hearts
+      for (let i = 0; i < 3; i++) {
+        const hx = 36 + i * 52, hy = 40, sz = 17;
+        tctx.lineWidth = 4; tctx.strokeStyle = "#2a0e16";
+        heartPath(tctx, hx, hy, sz); tctx.stroke();
+        if (i < p.hearts) { tctx.fillStyle = "#e8556a"; heartPath(tctx, hx, hy, sz); tctx.fill(); tctx.fillStyle = "rgba(255,255,255,0.5)"; tctx.fillRect(hx - sz * 0.5, hy - sz * 0.45, 5, 5); }
+        else { tctx.fillStyle = "#4a2a34"; heartPath(tctx, hx, hy, sz); tctx.fill(); }
+      }
+      // ATP
+      tctx.textAlign = "right"; tctx.font = "34px 'VT323', monospace";
+      tctx.fillStyle = "#0a0a12"; tctx.fillText("ATP " + s.atp, TW - 24 + 2, 52 + 2);
+      tctx.fillStyle = "#ffd34d"; tctx.fillText("ATP " + s.atp, TW - 24, 52);
+      // biome / zone
+      const biome = zoneFor(world, cam + VW / 2, camY + VH / 2);
+      tctx.textAlign = "center"; tctx.font = "32px 'VT323', monospace";
+      tctx.fillStyle = "#0a0a12"; tctx.fillText(biome.name, TW / 2 + 2, 46 + 2);
+      tctx.fillStyle = "rgba(244,234,208,0.92)"; tctx.fillText(biome.name, TW / 2, 46);
+      // world indicator (top-left, below hearts)
+      tctx.textAlign = "left"; tctx.font = "20px 'Press Start 2P', monospace";
+      const worldLabel = "WORLD " + s.worldId;
+      tctx.fillStyle = "#0a0a12"; tctx.fillText(worldLabel, 24 + 1, 82 + 1);
+      tctx.fillStyle = "rgba(244,234,208,0.7)"; tctx.fillText(worldLabel, 24, 82);
+      // carried-item readout
+      if (s.worldId === 2 && p.carry != null) {
+        const at = ANTIGEN_TYPES[p.carry];
+        tctx.font = "22px 'VT323', monospace";
+        tctx.fillStyle = "#0a0a12"; tctx.fillText("Carrying: " + at.name, 24 + 1, 110 + 1);
+        tctx.fillStyle = at.color; tctx.fillText("Carrying: " + at.name, 24, 110);
+      }
+      if (s.worldId === 3 && p.carry === "rbc") {
+        tctx.font = "22px 'VT323', monospace";
+        tctx.fillStyle = "#0a0a12"; tctx.fillText("Carrying: Senescent RBC", 24 + 1, 110 + 1);
+        tctx.fillStyle = "#e8556a"; tctx.fillText("Carrying: Senescent RBC", 24, 110);
+      }
+      if (s.worldId === 3) {
+        tctx.font = "18px 'VT323', monospace";
+        tctx.fillStyle = "#0a0a12"; tctx.fillText("Hold \u2191/\u2193 (or W/S) on a shaft to climb", 24 + 1, 134 + 1);
+        tctx.fillStyle = "rgba(244,234,208,0.7)"; tctx.fillText("Hold \u2191/\u2193 (or W/S) on a shaft to climb", 24, 134);
+        const rbcLabel = "RBCs recycled: " + world.rbcsDelivered + " / " + world.rbcs.length;
+        tctx.fillStyle = "#0a0a12"; tctx.fillText(rbcLabel, 24 + 1, 158 + 1);
+        tctx.fillStyle = world.gate.open ? "#9fe06a" : "#e8556a"; tctx.fillText(rbcLabel, 24, 158);
+      }
+
+      // cell-lecture banner — hidden while NPC dialogue is visible
+      if (s.bannerT > 0 && s.banner && s.dialogT <= 0) {
+        tctx.globalAlpha = Math.min(1, s.bannerT / 30);
+        tctx.textAlign = "left";
+        tctx.font = "30px 'VT323', monospace";
+        const maxTextW = TW - 240;
+        const lines = wrapText(tctx, s.banner.text, maxTextW);
+        let maxW = 0;
+        for (const ln of lines) maxW = Math.max(maxW, tctx.measureText(ln).width);
+        tctx.font = "16px 'Press Start 2P', monospace";
+        maxW = Math.max(maxW, tctx.measureText(s.banner.name).width);
+        const bw = Math.min(TW - 80, maxW + 56);
+        const bh = 44 + lines.length * 30;
+        const bx = (TW - bw) / 2, by = 66;
+        tctx.fillStyle = "rgba(18,9,22,0.9)"; roundRect(tctx, bx, by, bw, bh, 10); tctx.fill();
+        tctx.strokeStyle = "#e8859a"; tctx.lineWidth = 2; roundRect(tctx, bx, by, bw, bh, 10); tctx.stroke();
+        tctx.font = "16px 'Press Start 2P', monospace"; tctx.fillStyle = "#ffb3c2";
+        tctx.fillText(s.banner.name, bx + 28, by + 30);
+        tctx.font = "30px 'VT323', monospace"; tctx.fillStyle = "#f6e6d6";
+        lines.forEach((ln, i) => tctx.fillText(ln, bx + 28, by + 58 + i * 30));
+        // countdown drain bar along bottom edge
+        const barPct = Math.min(1, s.bannerT / 480);
+        tctx.globalAlpha = Math.min(1, s.bannerT / 30) * 0.5;
+        tctx.fillStyle = "rgba(255,255,255,0.12)"; tctx.fillRect(bx + 4, by + bh - 5, bw - 8, 3);
+        tctx.fillStyle = "#e8859a"; tctx.fillRect(bx + 4, by + bh - 5, (bw - 8) * barPct, 3);
+        tctx.globalAlpha = 1;
+      }
+
+      // dialog box (bottom) — the B-cell's lecture
+      if (s.dialogT > 0) {
+        tctx.globalAlpha = Math.min(1, s.dialogT / 30);
+        tctx.textAlign = "left";
+        tctx.font = "30px 'VT323', monospace";
+        const bx = 40, bw = TW - 80;
+        const lines = wrapText(tctx, s.dialog, bw - 56);
+        const bh = 56 + lines.length * 32;
+        const by = TH - bh - 24;
+        tctx.fillStyle = "rgba(16,8,20,0.92)"; roundRect(tctx, bx, by, bw, bh, 12); tctx.fill();
+        tctx.strokeStyle = "#82d2e2"; tctx.lineWidth = 3; roundRect(tctx, bx, by, bw, bh, 12); tctx.stroke();
+        tctx.font = "20px 'Press Start 2P', monospace"; tctx.fillStyle = "#82d2e2";
+        tctx.fillText(s.activeNpcName || (world.npcs ? world.npcs[0].name : world.npc.name), bx + 28, by + 34);
+        tctx.font = "30px 'VT323', monospace"; tctx.fillStyle = "#f4ead0";
+        lines.forEach((ln, i) => tctx.fillText(ln, bx + 28, by + 64 + i * 32));
+        if (Math.floor(s.t * 2) % 2 === 0) {
+          tctx.font = "18px 'VT323', monospace"; tctx.fillStyle = "rgba(244,234,208,0.45)";
+          tctx.textAlign = "right"; tctx.fillText("▶ E / ENTER", bx + bw - 18, by + bh - 10);
+          tctx.textAlign = "left";
+        }
+        tctx.globalAlpha = 1;
+      }
+    };
+
+    const loop = (now) => {
+      s = stateRef.current;
+      let dt = (now - last) / 1000; last = now; if (dt > 0.1) dt = 0.1;
+      if (modeRef.current === "play") { s.acc += dt; let n = 0; while (s.acc >= 1 / 60 && n < 5) { step(); s.acc -= 1 / 60; n++; } }
+      else s.t += dt;
+      renderGame(); renderText();
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+
+    return () => { cancelAnimationFrame(raf); window.removeEventListener("keydown", onDown); window.removeEventListener("keyup", onUp); };
+    // eslint-disable-next-line
+  }, []);
+
+  function roundRect(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+  function wrapText(ctx, text, maxW) {
+    const words = text.split(" "); const lines = []; let cur = "";
+    for (const w of words) { const test = cur ? cur + " " + w : w; if (ctx.measureText(test).width > maxW && cur) { lines.push(cur); cur = w; } else cur = test; }
+    if (cur) lines.push(cur); return lines;
+  }
+  // Small rotated arrow glyph; angle 0 points toward +x (right).
+  function drawPointerArrow(ctx, x, y, angle, color) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(angle);
+    ctx.fillStyle = color; ctx.strokeStyle = "#0a0a12"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(15, 0); ctx.lineTo(-8, 9); ctx.lineTo(-8, -9); ctx.closePath();
+    ctx.fill(); ctx.stroke();
+    ctx.restore();
+  }
+  // Where a ray from the screen center toward (dx,dy) crosses the inset
+  // screen border - used to place an off-screen objective marker.
+  function edgeArrowPos(cx, cy, dx, dy, w, h, margin) {
+    const halfW = w / 2 - margin, halfH = h / 2 - margin;
+    const tx = dx !== 0 ? halfW / Math.abs(dx) : Infinity;
+    const ty = dy !== 0 ? halfH / Math.abs(dy) : Infinity;
+    const t = Math.min(tx, ty);
+    return { x: cx + dx * t, y: cy + dy * t };
+  }
+
+  const playWorld = (n) => {
+    if (!audioRef.current) { try { audioRef.current = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+    if (audioRef.current && audioRef.current.state === "suspended") audioRef.current.resume();
+    reset(n); setModeBoth("play");
+  };
+  const start = () => playWorld(1);
+  const toggleMute = () => { mutedRef.current = !mutedRef.current; setMuted(mutedRef.current); };
+  const onVolumeChange = (v) => { volumeRef.current = v; setVolume(v); };
+  const pressJump = () => { if (modeRef.current === "play") stateRef.current.player.buffer = BUFFER; };
+
+  // On-screen touch controls: hold to move/climb, tap (twice) to jump/double-jump
+  const dirBtnStyle = {
+    width: 54, height: 54, borderRadius: 12, fontSize: 22, lineHeight: "54px", textAlign: "center",
+    background: "rgba(244,234,208,0.16)", border: "2px solid rgba(244,234,208,0.35)", color: "#f4ead0",
+    fontFamily: "'Press Start 2P', monospace", cursor: "pointer",
+  };
+  const jumpBtnStyle = {
+    width: 86, height: 86, borderRadius: "50%", fontSize: 12,
+    background: "rgba(255,211,77,0.22)", border: "2px solid rgba(255,211,77,0.5)", color: "#1a1206",
+    fontFamily: "'Press Start 2P', monospace", cursor: "pointer", fontWeight: "bold",
+  };
+  const holdHandlers = (key) => ({
+    onPointerDown: (e) => { e.preventDefault(); inputRef.current[key] = true; },
+    onPointerUp: (e) => { e.preventDefault(); inputRef.current[key] = false; },
+    onPointerLeave: () => { inputRef.current[key] = false; },
+    onPointerCancel: () => { inputRef.current[key] = false; },
+  });
+  const DirBtn = ({ dir, label }) => <button className="touch-btn" style={dirBtnStyle} {...holdHandlers(dir)}>{label}</button>;
+
+  const overlayWrap = {
+    position: "absolute", inset: 0, display: "flex", flexDirection: "column",
+    alignItems: "center", justifyContent: "center", textAlign: "center",
+    fontFamily: "'Press Start 2P', monospace", color: "#f4ead0", padding: 24,
+    background: "rgba(14,6,16,0.62)",
+  };
+  const bigBtn = {
+    marginTop: 24, fontFamily: "'Press Start 2P', monospace", fontSize: 13, color: "#1a1206",
+    background: "linear-gradient(180deg,#ffd34d,#e0a82e)", border: "2px solid #8a6418",
+    borderRadius: 6, padding: "14px 22px", cursor: "pointer", boxShadow: "0 5px 0 #6e4f12",
+  };
+  const ghostBtn = {
+    marginTop: 24, fontFamily: "'Press Start 2P', monospace", fontSize: 13, color: "#f4ead0",
+    background: "rgba(20,12,24,0.5)", border: "2px solid rgba(244,234,208,0.4)",
+    borderRadius: 6, padding: "14px 22px", cursor: "pointer",
+  };
+  const worldCard = {
+    width: 230, borderRadius: 8, padding: "14px 16px", textAlign: "left",
+    background: "rgba(20,12,24,0.7)", border: "2px solid rgba(244,234,208,0.25)",
+    display: "flex", flexDirection: "column", gap: 8,
+  };
+  const cardBtn = {
+    fontFamily: "'Press Start 2P', monospace", fontSize: 11, color: "#1a1206",
+    background: "linear-gradient(180deg,#ffd34d,#e0a82e)", border: "2px solid #8a6418",
+    borderRadius: 5, padding: "8px 12px", cursor: "pointer", alignSelf: "flex-start",
+  };
+  const WORLDS = [
+    { id: 1, name: "Vessels & Connective Tissue", color: "#9b2c3a", desc: "Cross the bloodstream and loose connective tissue to reach an afferent lymphatic vessel." },
+    { id: 2, name: "The Lymph Node", color: "#6a5cb0", desc: "Deliver antigens to follicular dendritic cells, hit HEV checkpoints, and find the efferent vessel." },
+    { id: 3, name: "The Spleen", color: "#b8505f", desc: "Climb shafts between white pulp, the marginal zone, and red pulp; recycle RBCs and find the splenic vein." },
+  ];
+  const creditsFooter = (
+    <div style={{ position: "absolute", bottom: 6, left: 10, right: 10, fontFamily: "'Press Start 2P', monospace", fontSize: 8, lineHeight: 1.8, color: "rgba(244,234,208,0.35)", textAlign: "left", pointerEvents: "none" }}>
+      Curated by sovix<br />
+      © 2026 @gravityeffect1 on GitHub — All rights reserved<br />
+      Content adapted from Ross Histology, 7th ed.
+    </div>
+  );
+
+  return (
+    <div style={{ minHeight: "100vh", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, boxSizing: "border-box", background: "radial-gradient(circle at 50% 28%, #2a1020, #0a040e 72%)" }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap');
+        .touch-controls { display: none; }
+        @media (pointer: coarse), (max-width: 820px) {
+          .touch-controls { display: flex !important; }
+        }
+        .touch-btn { -webkit-tap-highlight-color: transparent; touch-action: none; user-select: none; }
+        .touch-btn:active { background: rgba(255,211,77,0.35) !important; }
+        @keyframes titleGlow {
+          0%,100% { text-shadow: 0 6px 0 #2c5a1c, 0 0 22px rgba(159,224,106,0.22); }
+          50%      { text-shadow: 0 6px 0 #2c5a1c, 0 0 56px rgba(159,224,106,0.65), 0 0 110px rgba(159,224,106,0.18); }
+        }
+        @keyframes softBlink {
+          0%,46%,100% { opacity:1; }
+          50%,96%     { opacity:0; }
+        }
+        @keyframes fadeUp {
+          from { opacity:0; transform:translateY(12px); }
+          to   { opacity:1; transform:translateY(0); }
+        }
+        .title-line { animation: fadeUp 0.55s ease both; }
+        @keyframes cabinetGlow {
+          0%,100% { box-shadow: 0 0 0 2px #1a0a20, 0 0 28px rgba(159,224,106,0.12), 0 18px 50px rgba(0,0,0,0.75); }
+          50%     { box-shadow: 0 0 0 2px #1a0a20, 0 0 48px rgba(159,224,106,0.22), 0 18px 50px rgba(0,0,0,0.75); }
+        }
+        .game-bezel { animation: cabinetGlow 4s ease-in-out infinite; }
+      `}</style>
+
+      <div style={{ position: "relative", width: "min(1280px, 99vw)", maxWidth: 1280 }}>
+        <div className="game-bezel" style={{ position: "relative", borderRadius: 6, overflow: "hidden", border: "3px solid #3a2040", outline: "1px solid #6a3a5a" }}>
+          <canvas ref={gameRef} width={VW} height={VH} style={{ width: "100%", display: "block", imageRendering: "pixelated", background: "#160a14" }} />
+          <canvas ref={textRef} width={TW} height={TH} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }} />
+          {/* CRT scanline overlay */}
+          <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 3, backgroundImage: "repeating-linear-gradient(180deg, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 3px, rgba(0,0,0,0.1) 3px, rgba(0,0,0,0.1) 4px)" }} />
+
+          {/* mute toggle + menu */}
+          {mode === "play" && (
+            <div style={{ position: "absolute", right: 12, top: 12, display: "flex", gap: 8 }}>
+              <button onClick={() => setModeBoth("worldselect")} style={{ fontFamily: "'Press Start 2P', monospace", fontSize: 10, color: "#f4ead0", background: "rgba(20,12,24,0.5)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, padding: "6px 8px", cursor: "pointer" }}>
+                MENU
+              </button>
+              <button onClick={toggleMute} style={{ fontFamily: "'Press Start 2P', monospace", fontSize: 10, color: "#f4ead0", background: "rgba(20,12,24,0.5)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, padding: "6px 8px", cursor: "pointer" }}>
+                {muted ? "♪ OFF" : "♪ ON"}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* on-screen touch controls: D-pad (move + climb) and jump */}
+        {mode === "play" && (
+          <div className="touch-controls" style={{ justifyContent: "space-between", alignItems: "center", marginTop: 12, padding: "0 6px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "54px 54px 54px", gridTemplateRows: "54px 54px 54px", gap: 5 }}>
+              <div /><DirBtn dir="up" label="↑" /><div />
+              <DirBtn dir="left" label="←" /><div /><DirBtn dir="right" label="→" />
+              <div /><DirBtn dir="down" label="↓" /><div />
+            </div>
+            <button className="touch-btn" style={jumpBtnStyle} onPointerDown={(e) => { e.preventDefault(); pressJump(); }}>JUMP</button>
+          </div>
+        )}
+
+        {mode === "title" && (
+          <div style={{
+            position: "absolute", inset: 0, display: "flex", flexDirection: "column",
+            alignItems: "center", justifyContent: "center", textAlign: "center",
+            fontFamily: "'Press Start 2P', monospace", color: "#f4ead0", padding: 24,
+            background: "linear-gradient(160deg, rgba(6,2,10,0.82) 0%, rgba(14,6,16,0.26) 48%, rgba(6,2,10,0.86) 100%)",
+          }}>
+            <div className="title-line" style={{ fontSize: 9, color: "#7ec84a", letterSpacing: 4, animationDelay: "0s" }}>
+              HISTOLOGY MADE BY GAMERS
+            </div>
+            <div className="title-line" style={{ fontSize: 10, color: "rgba(255,211,77,0.72)", letterSpacing: 3, marginTop: 6, animationDelay: "0.08s" }}>
+              — CHAPTER II —
+            </div>
+            <div className="title-line" style={{ fontSize: 28, color: "#9fe06a", lineHeight: 1.25, marginTop: 16, animation: "titleGlow 3.6s ease-in-out infinite, fadeUp 0.55s 0.16s ease both", animationDelay: "titleGlow 0s, fadeUp 0.16s" }}>
+              THE LYMPHATIC<br />SYSTEM
+            </div>
+            <div className="title-line" style={{ fontFamily: "'VT323', monospace", fontSize: 20, color: "#c8a0be", marginTop: 10, letterSpacing: 1, animationDelay: "0.24s" }}>
+              a pathogen's tour of the body
+            </div>
+            <div className="title-line" style={{ width: 210, height: 1, background: "linear-gradient(90deg,transparent,rgba(159,224,106,0.5),transparent)", margin: "20px auto 0", animationDelay: "0.3s" }} />
+            <div className="title-line" style={{ animationDelay: "0.36s" }}>
+              <button style={bigBtn} onClick={start}>BEGIN INFECTION</button>
+            </div>
+            <div style={{ fontFamily: "'VT323', monospace", fontSize: 17, color: "rgba(244,234,208,0.42)", marginTop: 8, animation: "softBlink 1.5s step-end infinite" }}>
+              ▶ press any key to start ◀
+            </div>
+            <div className="title-line" style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center", marginTop: 4, animationDelay: "0.44s" }}>
+              <button style={ghostBtn} onClick={() => setModeBoth("worldselect")}>SELECT WORLD</button>
+              <button style={ghostBtn} onClick={() => setModeBoth("howtoplay")}>HOW TO PLAY</button>
+              <button style={ghostBtn} onClick={() => setModeBoth("options")}>OPTIONS</button>
+            </div>
+            {creditsFooter}
+          </div>
+        )}
+        {mode === "howtoplay" && (
+          <div style={overlayWrap}>
+            <div style={{ fontSize: 10, color: "#7ec84a", letterSpacing: 3 }}>· controls ·</div>
+            <div style={{ fontSize: 18, marginTop: 10, color: "#9fe06a", textShadow: "0 4px 0 #2c5a1c" }}>HOW TO PLAY</div>
+            <div style={{ fontFamily: "'VT323', monospace", fontSize: 21, marginTop: 22, lineHeight: 2.1, color: "#e8c0cf", textAlign: "left", maxWidth: 500 }}>
+              <span style={{ color: "#ffd34d" }}>MOVE</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;← → &nbsp;or&nbsp; A D<br />
+              <span style={{ color: "#ffd34d" }}>JUMP</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Space / W / ↑<br />
+              <span style={{ color: "#ffd34d" }}>DOUBLE-JUMP</span>&nbsp;&nbsp;press jump again mid-air<br />
+              <span style={{ color: "#ffd34d" }}>CLIMB SHAFT</span>&nbsp;&nbsp;hold ↑ / ↓ on a ladder column<br />
+              <span style={{ color: "#ffd34d" }}>PAUSE / MENU</span>&nbsp;&nbsp;Esc
+            </div>
+            <div style={{ fontFamily: "'VT323', monospace", fontSize: 19, marginTop: 18, lineHeight: 1.75, color: "rgba(244,234,208,0.7)", maxWidth: 480 }}>
+              Pass close to immune cells to learn about them.<br />
+              Carry collectibles to their delivery target to progress.<br />
+              You have 3 hearts — lose them all and you respawn at<br />
+              the nearest checkpoint.
+            </div>
+            <button style={ghostBtn} onClick={() => setModeBoth("title")}>← BACK</button>
+            {creditsFooter}
+          </div>
+        )}
+        {mode === "options" && (
+          <div style={overlayWrap}>
+            <div style={{ fontSize: 11, color: "#7ec84a", letterSpacing: 2 }}>· options ·</div>
+            <div style={{ fontSize: 22, marginTop: 14, color: "#9fe06a", textShadow: "0 4px 0 #2c5a1c" }}>SETTINGS</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 22, marginTop: 28, width: 320, textAlign: "left" }}>
+              <div>
+                <div style={{ fontSize: 12, marginBottom: 10 }}>SOUND VOLUME: {Math.round(volume * 100)}%</div>
+                <input type="range" min="0" max="1" step="0.05" value={volume} onChange={(e) => onVolumeChange(parseFloat(e.target.value))} style={{ width: "100%" }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 12, marginBottom: 10 }}>MUTE ALL SOUND</div>
+                <button style={{ ...ghostBtn, marginTop: 0 }} onClick={toggleMute}>{muted ? "MUTED \u2014 CLICK TO UNMUTE" : "SOUND ON \u2014 CLICK TO MUTE"}</button>
+              </div>
+            </div>
+            <button style={ghostBtn} onClick={() => setModeBoth("title")}>BACK</button>
+            {creditsFooter}
+          </div>
+        )}
+        {mode === "worldselect" && (
+          <div style={overlayWrap}>
+            <div style={{ fontSize: 11, color: "#7ec84a", letterSpacing: 2 }}>· select a world ·</div>
+            <div style={{ fontSize: 24, marginTop: 14, color: "#9fe06a", textShadow: "0 4px 0 #2c5a1c" }}>CHOOSE YOUR JOURNEY</div>
+            <div style={{ fontFamily: "'VT323', monospace", fontSize: 18, marginTop: 8, color: "#e8c0cf" }}>
+              Play any world, in any order - progress and ATP for that run start fresh.
+            </div>
+            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", justifyContent: "center", marginTop: 18 }}>
+              {WORLDS.map((w) => (
+                <div key={w.id} style={worldCard}>
+                  <div style={{ height: 6, borderRadius: 3, background: w.color }} />
+                  <div style={{ fontSize: 11, color: "#aef0ff" }}>WORLD {w.id}</div>
+                  <div style={{ fontSize: 13, color: "#f4ead0" }}>{w.name}</div>
+                  <div style={{ fontFamily: "'VT323', monospace", fontSize: 17, lineHeight: 1.4, color: "#e8c0cf" }}>{w.desc}</div>
+                  <button style={cardBtn} onClick={() => playWorld(w.id)}>PLAY</button>
+                </div>
+              ))}
+            </div>
+            <button style={ghostBtn} onClick={() => setModeBoth("title")}>BACK</button>
+            {creditsFooter}
+          </div>
+        )}
+        {mode === "transition" && transitionTo === 2 && (
+          <div style={overlayWrap}>
+            <div style={{ fontSize: 11, color: "#aef0ff", letterSpacing: 2 }}>· entering the node ·</div>
+            <div style={{ fontSize: 24, marginTop: 16, color: "#c6bdf2", textShadow: "0 4px 0 #3a3170" }}>THE LYMPH NODE</div>
+            <div style={{ fontFamily: "'VT323', monospace", fontSize: 22, marginTop: 22, lineHeight: 1.5, color: "#e8c0cf", maxWidth: 480 }}>
+              Swept along the afferent lymphatic, you pass through the capsule and drop into the subcapsular sinus.<br /><br />
+              Ahead: follicles and germinal centers, the paracortex with its HEVs, the medulla — and, far beyond, the efferent lymphatic vessel.<br /><br />
+              Pick up antigens and deliver them to a matching follicular dendritic cell to trigger a germinal center reaction.
+            </div>
+            <button style={bigBtn} onClick={beginNextWorld}>ENTER THE LYMPH NODE</button>
+          </div>
+        )}
+        {mode === "transition" && transitionTo === 3 && (
+          <div style={overlayWrap}>
+            <div style={{ fontSize: 11, color: "#ffc2cc", letterSpacing: 2 }}>· entering the spleen ·</div>
+            <div style={{ fontSize: 24, marginTop: 16, color: "#e89aa6", textShadow: "0 4px 0 #7a2c3c" }}>THE SPLEEN</div>
+            <div style={{ fontFamily: "'VT323', monospace", fontSize: 22, marginTop: 22, lineHeight: 1.5, color: "#e8c0cf", maxWidth: 480 }}>
+              Out of the efferent lymphatic and into the splenic artery, you arrive in white pulp - a B-cell follicle beside the T-cell PALS, wrapped around a central arteriole.<br /><br />
+              Below: the marginal zone, then red pulp's cords of Billroth - with a fork between an OPEN and a CLOSED circulation route down to the venous sinusoids and the splenic vein.<br /><br />
+              Hold ↑/↓ (or W/S) on a shaft to climb between levels. Collect senescent RBCs and deliver them to the red pulp macrophage for recycling.
+            </div>
+            <button style={bigBtn} onClick={beginNextWorld}>ENTER THE SPLEEN</button>
+          </div>
+        )}
+        {mode === "win" && (
+          <div style={overlayWrap}>
+            <div style={{ fontSize: 11, color: "#9fe06a", letterSpacing: 3, marginBottom: 6 }}>· pathogen survived ·</div>
+            <div style={{ fontSize: 20, color: "#9fe06a", textShadow: "0 4px 0 #2c5a1c" }}>SPLENIC VEIN REACHED</div>
+            <div style={{ fontFamily: "'VT323', monospace", fontSize: 22, marginTop: 18, lineHeight: 1.6, color: "#e8c0cf", maxWidth: 480 }}>
+              You squeezed through the venous sinusoids and out via the splenic vein — back into systemic circulation. The immune system tried its best.
+            </div>
+            <div style={{ fontFamily: "'VT323', monospace", fontSize: 20, marginTop: 14, lineHeight: 1.8, color: "#aef0ff" }}>
+              ATP gathered: <span style={{ color: "#ffe07a" }}>{stats.atp}</span> / {stats.total}<br />
+              Time: <span style={{ color: "#ffe07a" }}>{Math.floor(stats.time / 60) > 0 ? Math.floor(stats.time / 60) + "m " : ""}{stats.time % 60}s</span>
+            </div>
+            <div style={{ fontFamily: "'VT323', monospace", fontSize: 18, marginTop: 10, color: "rgba(200,180,210,0.7)", maxWidth: 440 }}>
+              Bloodstream → lymph node → spleen. One pathogen's tour of adaptive immunity.
+            </div>
+            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", justifyContent: "center", marginTop: 18 }}>
+              <button style={bigBtn} onClick={() => playWorld(stats.worldId)}>PLAY AGAIN</button>
+              <button style={ghostBtn} onClick={() => playWorld(1)}>FROM WORLD 1</button>
+              <button style={ghostBtn} onClick={() => setModeBoth("worldselect")}>WORLD SELECT</button>
+            </div>
+          </div>
+        )}
+        {mode === "lose" && (
+          <div style={overlayWrap}>
+            <div style={{ fontSize: 10, color: "#e8556a", letterSpacing: 3, marginBottom: 8 }}>· neutralised ·</div>
+            <div style={{ fontSize: 16, color: "#e8556a", textShadow: "0 4px 0 #5a1f2a" }}>THE IMMUNE</div>
+            <div style={{ fontSize: 16, color: "#e8556a", textShadow: "0 4px 0 #5a1f2a" }}>RESPONSE PREVAILED</div>
+            <div style={{ fontFamily: "'VT323', monospace", fontSize: 20, marginTop: 18, lineHeight: 1.9, color: "#e8c0cf", maxWidth: 440 }}>
+              Phagocytosed, neutralised, or swept out of bounds.<br />
+              ATP gathered: <span style={{ color: "#ffe07a" }}>{stats.atp}</span> / {stats.total}<br />
+              Time survived: <span style={{ color: "#ffe07a" }}>{Math.floor(stats.time / 60) > 0 ? Math.floor(stats.time / 60) + "m " : ""}{stats.time % 60}s</span>
+            </div>
+            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", justifyContent: "center", marginTop: 8 }}>
+              <button style={bigBtn} onClick={() => playWorld(stats.worldId)}>TRY AGAIN</button>
+              <button style={ghostBtn} onClick={() => setModeBoth("worldselect")}>WORLD SELECT</button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<MicrobeQuestV2 />);
+  </script>
+</body>
+</html>
