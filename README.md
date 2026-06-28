@@ -5,20 +5,6 @@ A serialised browser-based pixel platformer where you navigate the interior arch
 
 Developed by a medical student, for medical students
 
-## Chapter index
-
-| Chapter | System | Worlds | Status |
-|---------|--------|--------|--------|
-| **II** | **Lymphatic System** | Bloodstream → Lymph Node → Spleen | ✅ live |
-| III | Cardiovascular System | — | 🔧 planned |
-| IV | Respiratory System | — | 🔧 planned |
-| V | Digestive System | — | 🔧 planned |
-| ... | *one chapter per Ross section* | — | — |
-
-> Chapter I is reserved for an introductory module (cell biology / basic tissues) to be released alongside a later chapter.
-
----
-
 ## Chapter II — The Lymphatic System
 
 ### What you'll learn
