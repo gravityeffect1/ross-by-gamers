@@ -50,10 +50,7 @@ cd histo-by-gamers
 open index.html   # or just double-click it
 ```
 
-React 18 + Babel are loaded from CDN — you need an internet connection on first load.
-
-Also playable directly via GitHub Pages (no clone needed):
-**[gravityeffect1.github.io/histo-by-gamers](https://gravityeffect1.github.io/histo-by-gamers)**
+React 18 + Babel are loaded from CDN
 
 ---
 
