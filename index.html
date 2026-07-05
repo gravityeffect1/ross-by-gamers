@@ -50,6 +50,10 @@ const TW = VW * S;
 const TH = VH * S;
 const TILE = 16;
 const ROWS = 11;
+// Looping background track for the run. Save your exported file at exactly
+// this path (assets/ost-ubiquitin.mp3) — GitHub Pages serves it the same way
+// it already serves assets/ss2.png, no build step or config needed.
+const MUSIC_SRC = "assets/ost-ubiquitin.mp3";
 
 /* ---------- WORLDS --------------------------------------------------
    World 1: a journey through the vessels & loose connective tissue,
@@ -1188,6 +1192,7 @@ function MicrobeQuestV2() {
   const mutedRef = useRef(false);
   const volumeRef = useRef(1);
   const audioRef = useRef(null);
+  const musicRef = useRef(null);
   const inputRef = useRef({ left: false, right: false, up: false, down: false });
   const spriteRef = useRef(null);
   const pendingCarryRef = useRef(null);
@@ -1294,6 +1299,10 @@ function MicrobeQuestV2() {
 
   useEffect(() => {
     reset();
+    musicRef.current = new Audio(MUSIC_SRC);
+    musicRef.current.loop = true;
+    musicRef.current.volume = volumeRef.current;
+    musicRef.current.muted = mutedRef.current;
     const gctx = gameRef.current.getContext("2d");
     const tctx = textRef.current.getContext("2d");
     gctx.imageSmoothingEnabled = false;
@@ -2095,6 +2104,25 @@ function MicrobeQuestV2() {
     return () => { cancelAnimationFrame(raf); window.removeEventListener("keydown", onDown); window.removeEventListener("keyup", onUp); };
     // eslint-disable-next-line
   }, []);
+
+  // Music plays for the whole run (level, world transitions, the secret
+  // scene, win/lose recap) and pauses on any menu screen. play() is only
+  // ever reached via a click/keypress-triggered mode change, so it satisfies
+  // browsers' autoplay-with-sound gesture requirement.
+  useEffect(() => {
+    const music = musicRef.current;
+    if (!music) return;
+    const inRun = ["play", "transition", "secret", "win", "lose"].includes(mode);
+    if (inRun) music.play().catch(() => {});
+    else music.pause();
+  }, [mode]);
+
+  useEffect(() => {
+    const music = musicRef.current;
+    if (!music) return;
+    music.volume = volume;
+    music.muted = muted;
+  }, [volume, muted]);
 
   function roundRect(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
   function wrapText(ctx, text, maxW) {
