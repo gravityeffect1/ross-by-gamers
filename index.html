@@ -1184,7 +1184,7 @@ const FIBROBLAST_LINES = [
   "Go on, get back to your tour before someone notices a fibroblast is a single gene away from a stem cell.",
 ];
 
-function MicrobeQuestV2() {
+function RossbygamersV2() {
   const gameRef = useRef(null);
   const textRef = useRef(null);
   const stateRef = useRef(null);
@@ -1295,6 +1295,7 @@ function MicrobeQuestV2() {
   const beginNextWorld = () => {
     reset(pendingCarryRef.current.next, pendingCarryRef.current);
     setModeBoth("play");
+    playMusic();
   };
 
   useEffect(() => {
@@ -2148,10 +2149,17 @@ function MicrobeQuestV2() {
     return { x: cx + dx * t, y: cy + dy * t };
   }
 
+  // Called directly from click/keypress handlers so play() runs inside the
+  // same user-gesture call stack the browser's autoplay policy checks for —
+  // going through the mode-watching effect alone put it one React commit
+  // removed from the gesture, which some browsers silently reject.
+  const playMusic = () => { const m = musicRef.current; if (m) m.play().catch(() => {}); };
+
   const playWorld = (n) => {
     if (!audioRef.current) { try { audioRef.current = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
     if (audioRef.current && audioRef.current.state === "suspended") audioRef.current.resume();
     reset(n); setModeBoth("play");
+    playMusic();
   };
   const start = () => playWorld(1);
   const toggleMute = () => { mutedRef.current = !mutedRef.current; setMuted(mutedRef.current); };
@@ -2418,7 +2426,7 @@ function MicrobeQuestV2() {
                 {secretLine < FIBROBLAST_LINES.length - 1 ? (
                   <button style={{ ...bigBtn, marginTop: 0 }} onClick={() => setSecretLine((i) => i + 1)}>NEXT ▶</button>
                 ) : (
-                  <button style={{ ...bigBtn, marginTop: 0 }} onClick={() => setModeBoth("play")}>RETURN TO SPLEEN</button>
+                  <button style={{ ...bigBtn, marginTop: 0 }} onClick={() => { setModeBoth("play"); playMusic(); }}>RETURN TO SPLEEN</button>
                 )}
               </div>
             </div>
@@ -2466,7 +2474,7 @@ function MicrobeQuestV2() {
   );
 }
 
-ReactDOM.createRoot(document.getElementById("root")).render(<MicrobeQuestV2 />);
+ReactDOM.createRoot(document.getElementById("root")).render(<RossbygamersV2 />);
   </script>
 </body>
 </html>
