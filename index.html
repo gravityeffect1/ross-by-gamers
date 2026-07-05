@@ -391,6 +391,24 @@ function drawOrb(ctx, x, y, t) {
   ctx.fillStyle = "#fff4c0"; ctx.fillRect(-1, -1, 1, 1);
   ctx.restore();
 }
+function drawFactor(ctx, x, y, t, color) {
+  const pulse = 1 + Math.sin(t * 3) * 0.22;
+  ctx.save(); ctx.translate(Math.round(x), Math.round(y + Math.sin(t * 1.6) * 1.6));
+  drawGlow(ctx, 0, 0, 10 * pulse, color, 0.55);
+  // small double-helix glyph so it reads as "DNA/factor", not another ATP orb
+  ctx.strokeStyle = color; ctx.lineWidth = 1.4;
+  for (let s = -1; s <= 1; s += 2) {
+    ctx.beginPath();
+    for (let i = -4; i <= 4; i++) {
+      const py = i * 1.4;
+      const px = Math.sin(py * 0.9 + t * 3) * 3.2 * s;
+      i === -4 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+  }
+  ctx.fillStyle = "#ffffff"; ctx.fillRect(-1, -1, 1, 1);
+  ctx.restore();
+}
 function drawPortal(ctx, x, y, t, glow, fillA, fillB, ring) {
   drawGlow(ctx, x, y, 26, glow, 0.5 + Math.sin(t * 2) * 0.12);
   ctx.save(); ctx.translate(x, y);
@@ -698,7 +716,9 @@ function generateWorld1() {
   };
   const exit = { x: (COLS1 - 5) * TILE, y: gy(COLS1 - 5) - 14, kind: "portal", label: "Lymph Node \u2192" };
   const spawn = { x: 3 * TILE, y: gy(3) - 16 };
-  return { worldId: 1, cols: COLS1, biomes: BIOMES1, solid, surfaceRow, platforms, orbs, enemies, antibodies, cytokines, npc, exit, spawn, totalOrbs: orbs.length };
+  // hidden collectible \u2014 tucked on the small high platform at col 54, easy to miss
+  const factors = [{ x: 55 * TILE + 8, y: 4 * TILE - 9, got: false, key: "OCT4" }];
+  return { worldId: 1, cols: COLS1, biomes: BIOMES1, solid, surfaceRow, platforms, orbs, factors, enemies, antibodies, cytokines, npc, exit, spawn, totalOrbs: orbs.length };
 }
 
 function generateWorld2() {
@@ -793,6 +813,8 @@ function generateWorld2() {
   };
   const exit = { x: (COLS2 - 4) * TILE, y: gy(COLS2 - 4) - 14, kind: "portal", next: 3, label: "Splenic Artery \u2192" };
   const spawn = { x: 3 * TILE, y: gy(3) - 16 };
+  // hidden collectible \u2014 on the small high platform near col 126, well off the main floor route
+  const factors = [{ x: 127 * TILE + 8, y: 4 * TILE - 9, got: false, key: "SOX2" }];
 
  
   const currents = [
@@ -802,7 +824,7 @@ function generateWorld2() {
 
   return {
     worldId: 2, cols: COLS2, biomes: BIOMES2, solid, surfaceRow, platforms, trabeculae,
-    orbs, antigens, fdcs, hevs, enemies, plasmas, antibodies, cytokines, npc, exit, spawn,
+    orbs, factors, antigens, fdcs, hevs, enemies, plasmas, antibodies, cytokines, npc, exit, spawn,
     currents, totalOrbs: orbs.length, zonesSeen: new Array(BIOMES2.length).fill(false),
   };
 }
@@ -933,9 +955,15 @@ function generateWorld3() {
   // Gate is now a visual/educational landmark only — the exit is before it on the sinusoid floor
   const gate = { c0: 85, r0: 0, r1: 20, open: false };
 
+  // hidden collectible — reaching it still requires the normal descent (down
+  // one of the col-30/col-70 shafts to the venous sinusoid floor), but it's
+  // tucked back at the very start of that floor (col 2), so most players who
+  // beeline right after descending will walk straight past it.
+  const factors = [{ x: 2 * TILE + 8, y: 21 * TILE - 9, got: false, key: "KLF4" }];
+
   return {
     worldId: 3, cols: COLS3, rows: ROWS3, biomes: BIOMES3, zoneAxis: "row",
-    solid, ladderCells, orbs, rbcs, rbcsDelivered: 0, rpStation, enemies, npcs, exit, spawn, arteriole,
+    solid, ladderCells, orbs, factors, rbcs, rbcsDelivered: 0, rpStation, enemies, npcs, exit, spawn, arteriole,
     routeMarkers, routeSeen: [false, false], gate, gateSeen: false,
     cytokines, antibodies, totalOrbs: orbs.length, zonesSeen: new Array(BIOMES3.length).fill(false),
   };
@@ -1081,6 +1109,25 @@ const ROUTE_FACTS3 = [
 const RBC_DONE_FACT = { name: "RECYCLING COMPLETE", text: "All three erythrocytes recycled! Follow the venous sinusoids down and to the right to find the splenic vein and complete your journey." };
 const GATE_CLOSED_FACT = { name: "HEV \u2014 CLOSED", text: "This high endothelial venule won't let a pathogen through yet. Recycle all three senescent RBCs at the red pulp macrophage to open it." };
 
+// Hidden collectibles \u2014 one Yamanaka reprogramming factor tucked away off the
+// critical path in each world. Finding all three (World 3's KLF4 last) triggers
+// a secret off-screen ending with a fibroblast NPC.
+const YAMANAKA_FACTORS = {
+  OCT4: { key: "OCT4", name: "OCT4 \u2014 FOUND", color: "#ffb84d", text: "OCT4 (POU5F1) sits at the core of the pluripotency network \u2014 knock it out of an early embryo and the inner cell mass never forms." },
+  SOX2: { key: "SOX2", name: "SOX2 \u2014 FOUND", color: "#7ce0ff", text: "SOX2 partners directly with OCT4 on DNA, the two binding adjacent motifs to co-activate pluripotency genes like Nanog." },
+  KLF4: { key: "KLF4", name: "KLF4 \u2014 FOUND", color: "#c8a6ff", text: "KLF4 represses differentiation programs and helps reset the epigenome \u2014 often the last piece needed to reprogram a somatic cell." },
+};
+
+const FIBROBLAST_LINES = [
+  "...oh. You're not a growth factor. You're a pathogen.",
+  "I'm a fibroblast. Normally I just lay down collagen and mind my business in connective tissue.",
+  "But somebody's been slipping transcription factors into my cytoplasm \u2014 OCT4, SOX2, KLF4. That was you, wasn't it.",
+  "Takahashi and Yamanaka showed in 2006 that four factors are enough to reprogram a cell like me into an induced pluripotent stem cell.",
+  "You only found three. The fourth, C-MYC, is still out there \u2014 and it's an oncogene, so maybe don't go looking too hard for it.",
+  "Still, three is enough to loosen my epigenome. My chromatin feels... younger. Thanks for that, I think.",
+  "Go on, get back to your tour before someone notices a fibroblast is a single gene away from a stem cell.",
+];
+
 function MicrobeQuestV2() {
   const gameRef = useRef(null);
   const textRef = useRef(null);
@@ -1092,12 +1139,14 @@ function MicrobeQuestV2() {
   const inputRef = useRef({ left: false, right: false, up: false, down: false });
   const spriteRef = useRef(null);
   const pendingCarryRef = useRef(null);
+  const factorsFoundRef = useRef(new Set());
 
   const [mode, setMode] = useState("title");
   const [muted, setMuted] = useState(false);
   const [volume, setVolume] = useState(1);
   const [stats, setStats] = useState({ atp: 0, total: 0, time: 0, worldId: 1 });
   const [transitionTo, setTransitionTo] = useState(2);
+  const [secretLine, setSecretLine] = useState(0);
 
   const setModeBoth = (m) => { modeRef.current = m; setMode(m); };
 
@@ -1169,6 +1218,15 @@ function MicrobeQuestV2() {
     setModeBoth(m);
   };
 
+
+  // Undertale-style secret: freezes the current frame (step() stops running
+  // once mode leaves "play") and hands off to a full-screen NPC scene. Player
+  // state is never reset, so "return" just flips mode back to "play" and
+  // gameplay resumes exactly where it was interrupted.
+  const triggerSecretEnding = () => {
+    setSecretLine(0);
+    setModeBoth("secret");
+  };
 
   const enterTransition = (next) => {
     const s = stateRef.current;
@@ -1329,6 +1387,23 @@ function MicrobeQuestV2() {
       s.camY = Math.max(0, Math.min(Math.max(0, worldRows * TILE - VH), s.camY));
 
       for (const o of world.orbs) { if (o.got) continue; if (Math.abs(o.x - (p.x + p.w / 2)) < 9 && Math.abs(o.y - (p.y + p.h / 2)) < 10) { o.got = true; s.atp++; sound("pickup"); spawnP(s, o.x, o.y, "#ffe07a", 8, 2.2); s.scorePopups.push({ x: o.x, y: o.y - 4, life: 38, max: 38 }); } }
+
+      // hidden Yamanaka-factor collectibles — fun-fact banner on pickup;
+      // finding all three (KLF4 last, in the spleen) triggers the secret ending
+      for (const f of world.factors || []) {
+        if (f.got) continue;
+        if (Math.abs(f.x - (p.x + p.w / 2)) < 10 && Math.abs(f.y - (p.y + p.h / 2)) < 11) {
+          f.got = true;
+          const fact = YAMANAKA_FACTORS[f.key];
+          factorsFoundRef.current.add(f.key);
+          sound("pickup"); setTimeout(() => sound("pickup"), 90);
+          spawnP(s, f.x, f.y, fact.color, 14, 2.6);
+          s.banner = fact; s.bannerT = 440;
+          if (f.key === "KLF4" && factorsFoundRef.current.has("OCT4") && factorsFoundRef.current.has("SOX2")) {
+            triggerSecretEnding();
+          }
+        }
+      }
 
       const nearType = { macro: false, neut: false, tcell: false, fdc: false, plasma: false };
 
@@ -1597,6 +1672,7 @@ function MicrobeQuestV2() {
 
       // orbs
       for (const o of world.orbs) { if (o.got) continue; if (o.x - cam < -10 || o.x - cam > VW + 10) continue; drawOrb(gctx, o.x - cam, o.y - camY, s.t); }
+      for (const f of world.factors || []) { if (f.got) continue; if (f.x - cam < -10 || f.x - cam > VW + 10) continue; drawFactor(gctx, f.x - cam, f.y - camY, s.t, YAMANAKA_FACTORS[f.key].color); }
 
       if (s.worldId === 3) {
         const art = world.arteriole;
@@ -2237,6 +2313,28 @@ function MicrobeQuestV2() {
               Hold ↑/↓ (or W/S) on a shaft to climb between levels. Collect senescent RBCs and deliver them to the red pulp macrophage for recycling.
             </div>
             <button style={bigBtn} onClick={beginNextWorld}>ENTER THE SPLEEN</button>
+          </div>
+        )}
+        {mode === "secret" && (
+          <div style={{ ...overlayWrap, background: "linear-gradient(160deg, rgba(10,4,16,0.95) 0%, rgba(30,14,26,0.9) 100%)" }}>
+            <div style={{ fontSize: 10, color: "#c8a6ff", letterSpacing: 3 }}>· ??? ·</div>
+            <div style={{ fontSize: 18, marginTop: 10, color: "#e0b4ff", textShadow: "0 4px 0 #4a2c66" }}>SOMEWHERE OFF THE MAP</div>
+            <div style={{
+              marginTop: 24, width: "min(520px, 100%)", background: "rgba(18,9,22,0.9)",
+              border: "2px solid #e0b4ff", borderRadius: 10, padding: "22px 26px", textAlign: "left",
+            }}>
+              <div style={{ fontSize: 13, color: "#ffb3c2" }}>FIBROBLAST</div>
+              <div style={{ fontFamily: "'VT323', monospace", fontSize: 24, marginTop: 14, lineHeight: 1.5, color: "#f6e6d6" }}>
+                {FIBROBLAST_LINES[secretLine]}
+              </div>
+            </div>
+            <div style={{ marginTop: 22 }}>
+              {secretLine < FIBROBLAST_LINES.length - 1 ? (
+                <button style={bigBtn} onClick={() => setSecretLine((i) => i + 1)}>NEXT ▶</button>
+              ) : (
+                <button style={bigBtn} onClick={() => setModeBoth("play")}>RETURN TO SPLEEN</button>
+              )}
+            </div>
           </div>
         )}
         {mode === "win" && (
