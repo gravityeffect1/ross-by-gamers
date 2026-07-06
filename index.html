@@ -1184,12 +1184,13 @@ const FIBROBLAST_LINES = [
   "Go on, get back to your tour before someone notices a fibroblast is a single gene away from a stem cell.",
 ];
 
-function RossbygamersV2() {
+function MicrobeQuestV2() {
   const gameRef = useRef(null);
   const textRef = useRef(null);
   const stateRef = useRef(null);
   const modeRef = useRef("title");
   const mutedRef = useRef(false);
+  const musicMutedRef = useRef(false);
   const volumeRef = useRef(1);
   const audioRef = useRef(null);
   const musicRef = useRef(null);
@@ -1200,6 +1201,7 @@ function RossbygamersV2() {
 
   const [mode, setMode] = useState("title");
   const [muted, setMuted] = useState(false);
+  const [musicMuted, setMusicMuted] = useState(false);
   const [volume, setVolume] = useState(1);
   const [stats, setStats] = useState({ atp: 0, total: 0, time: 0, worldId: 1 });
   const [transitionTo, setTransitionTo] = useState(2);
@@ -1303,7 +1305,7 @@ function RossbygamersV2() {
     musicRef.current = new Audio(MUSIC_SRC);
     musicRef.current.loop = true;
     musicRef.current.volume = volumeRef.current;
-    musicRef.current.muted = mutedRef.current;
+    musicRef.current.muted = musicMutedRef.current;
     const gctx = gameRef.current.getContext("2d");
     const tctx = textRef.current.getContext("2d");
     gctx.imageSmoothingEnabled = false;
@@ -2122,8 +2124,8 @@ function RossbygamersV2() {
     const music = musicRef.current;
     if (!music) return;
     music.volume = volume;
-    music.muted = muted;
-  }, [volume, muted]);
+    music.muted = musicMuted;
+  }, [volume, musicMuted]);
 
   function roundRect(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
   function wrapText(ctx, text, maxW) {
@@ -2163,6 +2165,7 @@ function RossbygamersV2() {
   };
   const start = () => playWorld(1);
   const toggleMute = () => { mutedRef.current = !mutedRef.current; setMuted(mutedRef.current); };
+  const toggleMusicMute = () => { musicMutedRef.current = !musicMutedRef.current; setMusicMuted(musicMutedRef.current); };
   const onVolumeChange = (v) => { volumeRef.current = v; setVolume(v); };
   const pressJump = () => { if (modeRef.current === "play") stateRef.current.player.buffer = BUFFER; };
 
@@ -2268,7 +2271,10 @@ function RossbygamersV2() {
                 MENU
               </button>
               <button onClick={toggleMute} style={{ fontFamily: "'Press Start 2P', monospace", fontSize: 10, color: "#f4ead0", background: "rgba(20,12,24,0.5)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, padding: "6px 8px", cursor: "pointer" }}>
-                {muted ? "♪ OFF" : "♪ ON"}
+                {muted ? "SFX OFF" : "SFX ON"}
+              </button>
+              <button onClick={toggleMusicMute} style={{ fontFamily: "'Press Start 2P', monospace", fontSize: 10, color: "#f4ead0", background: "rgba(20,12,24,0.5)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, padding: "6px 8px", cursor: "pointer" }}>
+                {musicMuted ? "♫ OFF" : "♫ ON"}
               </button>
             </div>
           )}
@@ -2345,14 +2351,24 @@ function RossbygamersV2() {
           <div style={overlayWrap}>
             <div style={{ fontSize: 11, color: "#7ec84a", letterSpacing: 2 }}>· options ·</div>
             <div style={{ fontSize: 22, marginTop: 14, color: "#9fe06a", textShadow: "0 4px 0 #2c5a1c" }}>SETTINGS</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 22, marginTop: 28, width: 320, textAlign: "left" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 22, marginTop: 28, width: 340, textAlign: "left" }}>
               <div>
                 <div style={{ fontSize: 12, marginBottom: 10 }}>SOUND VOLUME: {Math.round(volume * 100)}%</div>
                 <input type="range" min="0" max="1" step="0.05" value={volume} onChange={(e) => onVolumeChange(parseFloat(e.target.value))} style={{ width: "100%" }} />
               </div>
               <div>
-                <div style={{ fontSize: 12, marginBottom: 10 }}>MUTE ALL SOUND</div>
-                <button style={{ ...ghostBtn, marginTop: 0 }} onClick={toggleMute}>{muted ? "MUTED \u2014 CLICK TO UNMUTE" : "SOUND ON \u2014 CLICK TO MUTE"}</button>
+                <div style={{ fontSize: 12, marginBottom: 10 }}>SFX (jumps, pickups, hits)</div>
+                <button style={{ ...ghostBtn, marginTop: 0 }} onClick={toggleMute}>{muted ? "MUTED \u2014 CLICK TO UNMUTE" : "ON \u2014 CLICK TO MUTE"}</button>
+              </div>
+              <div>
+                <div style={{ fontSize: 12, marginBottom: 10 }}>MUSIC</div>
+                <button style={{ ...ghostBtn, marginTop: 0 }} onClick={toggleMusicMute}>{musicMuted ? "MUTED \u2014 CLICK TO UNMUTE" : "ON \u2014 CLICK TO MUTE"}</button>
+              </div>
+              <div style={{ paddingTop: 14, borderTop: "1px solid rgba(244,234,208,0.15)" }}>
+                <div style={{ fontSize: 11, color: "#7ec84a", letterSpacing: 2, marginBottom: 8 }}>\ud83c\udfb5 SOUNDTRACK CREDITS</div>
+                <div style={{ fontFamily: "'VT323', monospace", fontSize: 17, lineHeight: 1.6, color: "rgba(244,234,208,0.75)" }}>
+                  Composed by Sara Sovix in <span style={{ color: "#aef0ff" }}>Strudel</span> \u2014 an ethereal ocarina-style loop generated from ubiquitin's 76-residue amino acid sequence, hydrophobicity mapped to melodic contour.
+                </div>
               </div>
             </div>
             <button style={ghostBtn} onClick={() => setModeBoth("title")}>BACK</button>
@@ -2474,7 +2490,7 @@ function RossbygamersV2() {
   );
 }
 
-ReactDOM.createRoot(document.getElementById("root")).render(<RossbygamersV2 />);
+ReactDOM.createRoot(document.getElementById("root")).render(<MicrobeQuestV2 />);
   </script>
 </body>
 </html>
