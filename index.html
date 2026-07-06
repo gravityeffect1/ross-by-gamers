@@ -241,13 +241,13 @@ function bcellGrid() {
 
 
 const RETIC_PAL = { O: "#5a4470", b: "#cdb8ec", d: "#a48bd4", h: "#ece0ff", e: "#3a2a52", p: "#241a38", n: "#f4eaff" };
-function buildStellate(w, h, body, dark, hi, arm, phase = 0) {
+function buildStellate(w, h, body, dark, hi, arm, phase = 0, reach = 1) {
   const g = buildBlob(w, h, w * 0.26, h * 0.26, body, dark, hi);
   const cx = (w - 1) / 2, cy = (h - 1) / 2;
 
   for (let i = 0; i < 6; i++) {
     const a = (i / 6) * Math.PI * 2 + 0.3 + phase;
-    const len = Math.max(w, h) * 0.62;
+    const len = Math.max(w, h) * 0.62 * reach;
     for (let t = 2; t < len; t += 1) {
       const x = Math.round(cx + Math.cos(a) * t), y = Math.round(cy + Math.sin(a) * t * 0.92);
       setPx(g, x, y, arm);
@@ -288,18 +288,29 @@ function rpMacGrid() {
 // Fibroblast — same stellate body plan as the reticular cell (its close
 // relative), in a warm rose palette instead of RETIC_PAL's violet, so it
 // reads as a new character rather than a recolored NPC. `phase` nudges the
-// arm angles so two frames alternate into a subtle "talking" wiggle.
+// arm angles for a wiggle cycle; `reach` shortens the processes at rest and
+// extends them while talking, so the cell visibly "reaches out" at you.
 const FIBRO_PAL = { O: "#7a3d3a", b: "#e8a999", d: "#c97b6d", h: "#f7d4c4", e: "#4a2420", p: "#2a1210", n: "#fff0e6" };
-function fibroblastGrid(phase) {
-  const g = buildStellate(24, 20, "b", "d", "h", "O", phase);
-  const cx = 11, cy = 10;
+function fibroblastGrid(phase, reach = 1) {
+  const g = buildStellate(28, 24, "b", "d", "h", "O", phase, reach);
+  const cx = 13, cy = 11;
   setPx(g, cx, cy, "e"); setPx(g, cx + 1, cy, "e"); setPx(g, cx, cy + 1, "e"); setPx(g, cx + 1, cy + 1, "e");
   setPx(g, cx - 1, cy - 1, "n"); setPx(g, cx + 2, cy - 1, "n");
   return g;
 }
 let fibroSprites = null;
 function getFibroSprites() {
-  if (!fibroSprites) fibroSprites = [makeSprite(fibroblastGrid(0), FIBRO_PAL), makeSprite(fibroblastGrid(0.22), FIBRO_PAL)];
+  if (!fibroSprites) {
+    fibroSprites = {
+      idle: [makeSprite(fibroblastGrid(0, 0.68), FIBRO_PAL), makeSprite(fibroblastGrid(0.1, 0.72), FIBRO_PAL)],
+      talk: [
+        makeSprite(fibroblastGrid(-0.22, 1.05), FIBRO_PAL),
+        makeSprite(fibroblastGrid(-0.08, 1.1), FIBRO_PAL),
+        makeSprite(fibroblastGrid(0.08, 1.1), FIBRO_PAL),
+        makeSprite(fibroblastGrid(0.22, 1.05), FIBRO_PAL),
+      ],
+    };
+  }
   return fibroSprites;
 }
 
@@ -431,24 +442,47 @@ function drawFactor(ctx, x, y, t, color) {
   ctx.fillStyle = "#ffffff"; ctx.fillRect(-1, -1, 1, 1);
   ctx.restore();
 }
-// The secret-ending scene: a loose-connective-tissue backdrop (woven collagen
-// bundles + drifting ECM flecks) behind an animated fibroblast, drawn straight
+// The secret-ending scene: a parallax loose-connective-tissue backdrop
+// (blurred back fiber layer, sharper mid fiber layer, drifting ECM flecks,
+// soft background silhouettes) behind an animated fibroblast, drawn straight
 // onto the main game canvas so it matches the rest of the game's pixel style
-// instead of looking like a bolted-on menu.
-function drawFibroblastScene(ctx, t) {
+// instead of looking like a bolted-on menu. `talking` swaps in the
+// arms-extended frame set; `introStartT` drives a brief fade/zoom-in the
+// first time the scene is entered.
+function drawFibroblastScene(ctx, t, talking, introStartT) {
+  const introT = Math.min(1, Math.max(0, (t - introStartT) / 0.6));
+  const ease = introT * (2 - introT);
+
   const grad = ctx.createLinearGradient(0, 0, 0, VH);
   grad.addColorStop(0, "#3a1f22"); grad.addColorStop(1, "#5c2d30");
   ctx.fillStyle = grad; ctx.fillRect(0, 0, VW, VH);
 
+  // back layer — dim, blurred, slow-undulating collagen bundles (depth cue)
+  ctx.save();
+  try { ctx.filter = "blur(1.6px)"; } catch (e) {}
+  ctx.globalAlpha = 0.1; ctx.strokeStyle = "#f2c9b8"; ctx.lineWidth = 3;
+  for (let i = -3; i < 9; i++) {
+    const baseX = i * 42;
+    ctx.beginPath();
+    for (let y = 0; y <= VH; y += 12) {
+      const x = baseX + y * 0.5 + Math.sin(y * 0.05 + t * 0.5 + i) * 6;
+      y === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // mid layer — sharper collagen crosshatch, gently waving
   ctx.save();
   ctx.globalAlpha = 0.16; ctx.strokeStyle = "#f2c9b8"; ctx.lineWidth = 2;
   for (let i = -4; i < 12; i++) {
-    const off = i * 34 + Math.sin(t * 0.4 + i) * 4;
+    const off = i * 34 + Math.sin(t * 0.4 + i) * 5;
     ctx.beginPath(); ctx.moveTo(off, 0); ctx.lineTo(off + VH * 0.6, VH); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(VW - off, 0); ctx.lineTo(VW - off - VH * 0.6, VH); ctx.stroke();
   }
   ctx.restore();
 
+  // drifting ECM ground-substance flecks
   for (let i = 0; i < 34; i++) {
     const x = hash2(i, 11) * VW, y = (hash2(i, 29) * VH + t * 6 + i * 5) % VH;
     ctx.globalAlpha = 0.25 + 0.2 * Math.sin(t * 2 + i);
@@ -458,12 +492,49 @@ function drawFibroblastScene(ctx, t) {
   ctx.globalAlpha = 1;
 
   const sprites = getFibroSprites();
-  const frame = sprites[Math.floor(t * 3) % 2];
-  const scale = 6.2 + Math.sin(t * 2) * 0.12;
+
+  // soft out-of-focus background fibroblasts — cheap reuse of the idle sprite
+  ctx.save();
+  try { ctx.filter = "blur(2px)"; } catch (e) {}
+  ctx.globalAlpha = 0.14;
+  const bg0 = sprites.idle[0];
+  [[46, 130, 2.4, 0], [268, 100, 2.0, 2]].forEach(([bx, by, sc, ph]) => {
+    const bob = Math.sin(t * 0.8 + ph) * 3;
+    ctx.drawImage(bg0.cv, bx - (bg0.w * sc) / 2, by - bg0.h * sc + bob, bg0.w * sc, bg0.h * sc);
+  });
+  ctx.restore();
+
+  // spotlight/vignette centered on the character
+  const vg = ctx.createRadialGradient(VW / 2, VH / 2 + 6, 10, VW / 2, VH / 2 + 6, VH * 0.75);
+  vg.addColorStop(0, "rgba(255,230,210,0.10)");
+  vg.addColorStop(0.55, "rgba(0,0,0,0)");
+  vg.addColorStop(1, "rgba(0,0,0,0.45)");
+  ctx.fillStyle = vg; ctx.fillRect(0, 0, VW, VH);
+
+  // ground shadow
+  ctx.save();
+  ctx.globalAlpha = 0.35 * ease;
+  ctx.fillStyle = "#150708";
+  ctx.beginPath(); ctx.ellipse(VW / 2, VH / 2 + 34, 30, 7, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+
+  // the fibroblast — extends processes and cycles faster while talking
+  const frameSet = talking ? sprites.talk : sprites.idle;
+  const cycleSpeed = talking ? 6 : 2;
+  const frame = frameSet[Math.floor(t * cycleSpeed) % frameSet.length];
+  const scale = (6.2 + Math.sin(t * 2) * 0.12) * (0.85 + 0.15 * ease);
   const dw = frame.w * scale, dh = frame.h * scale;
   const dx = Math.round(VW / 2 - dw / 2);
   const dy = Math.round(VH / 2 - dh / 2 + Math.sin(t * 1.3) * 3 + 6);
+  ctx.globalAlpha = ease;
   ctx.drawImage(frame.cv, dx, dy, dw, dh);
+  ctx.globalAlpha = 1;
+
+  // fade in from black on first entering the scene
+  if (introT < 1) {
+    ctx.fillStyle = `rgba(10,4,5,${1 - ease})`;
+    ctx.fillRect(0, 0, VW, VH);
+  }
 }
 function drawPortal(ctx, x, y, t, glow, fillA, fillB, ring) {
   drawGlow(ctx, x, y, 26, glow, 0.5 + Math.sin(t * 2) * 0.12);
@@ -1174,14 +1245,37 @@ const YAMANAKA_FACTORS = {
   KLF4: { key: "KLF4", name: "KLF4 \u2014 FOUND", color: "#c8a6ff", text: "KLF4 represses differentiation programs and helps reset the epigenome \u2014 often the last piece needed to reprogram a somatic cell." },
 };
 
-const FIBROBLAST_LINES = [
-  "...oh. You're not a growth factor. You're a pathogen.",
-  "I'm a fibroblast. Normally I just lay down collagen and mind my business in connective tissue.",
-  "But somebody's been slipping transcription factors into my cytoplasm \u2014 OCT4, SOX2, KLF4. That was you, wasn't it.",
-  "Takahashi and Yamanaka showed in 2006 that four factors are enough to reprogram a cell like me into an induced pluripotent stem cell.",
-  "You only found three. The fourth, C-MYC, is still out there \u2014 and it's an oncogene, so maybe don't go looking too hard for it.",
-  "Still, three is enough to loosen my epigenome. My chromatin feels... younger. Thanks for that, I think.",
-  "Go on, get back to your tour before someone notices a fibroblast is a single gene away from a stem cell.",
+// Each step is either a plain narrated line ({ text }) or a quiz beat
+// ({ question, options }). This is a small beta test of the roadmap's "quiz
+// encounters" idea \u2014 multiple choice, immediate feedback, no scoring yet.
+const FIBROBLAST_STEPS = [
+  { text: "...oh. You're not a growth factor. You're a pathogen." },
+  { text: "I'm a fibroblast. Normally I just lay down collagen and mind my business in connective tissue." },
+  { text: "But somebody's been slipping transcription factors into my cytoplasm \u2014 OCT4, SOX2, KLF4. That was you, wasn't it." },
+  { text: "Takahashi and Yamanaka showed in 2006 that four factors are enough to reprogram a cell like me into an induced pluripotent stem cell." },
+  { text: "You only found three. The fourth, C-MYC, is still out there \u2014 and it's an oncogene, so maybe don't go looking too hard for it." },
+  { text: "Still, three is enough to loosen my epigenome. My chromatin feels... younger. Thanks for that, I think." },
+  { text: "Actually \u2014 while I'm still feeling clever, humor me. You've toured the lymph node already, right? Quick check." },
+  {
+    question: "Which zone do T cells wait in for antigen-loaded dendritic cells to arrive?",
+    options: [
+      { label: "Superficial cortex (follicles)", correct: false, feedback: "Close \u2014 that's the B-cell zone, where germinal centers form." },
+      { label: "Paracortex", correct: true, feedback: "Right. The paracortex is the thymus-dependent zone, threaded with HEVs where T cells enter from blood." },
+      { label: "Medulla", correct: false, feedback: "Not quite \u2014 the medulla is full of plasma cells finishing the job, not T cells waiting for antigen." },
+      { label: "Subcapsular sinus", correct: false, feedback: "That's actually the first stop \u2014 sinus macrophages filter lymph there before it even reaches a follicle." },
+    ],
+  },
+  { text: "Not bad. One more, since you're here." },
+  {
+    question: "Lymph itself enters a lymph node through which vessels?",
+    options: [
+      { label: "Efferent lymphatics", correct: false, feedback: "Efferent vessels carry lymph AWAY from the node, toward the next node or the thoracic duct." },
+      { label: "Afferent lymphatics", correct: true, feedback: "Correct \u2014 afferent vessels pierce the capsule and drain straight into the subcapsular sinus." },
+      { label: "The central arteriole", correct: false, feedback: "That's blood supply, not lymph \u2014 you're thinking of the spleen's white pulp." },
+      { label: "High endothelial venules", correct: false, feedback: "HEVs let lymphocytes enter from the blood \u2014 lymph itself doesn't travel through them." },
+    ],
+  },
+  { text: "Go on, get back to your tour before someone notices a fibroblast is a single gene away from a stem cell." },
 ];
 
 function MicrobeQuestV2() {
@@ -1198,6 +1292,9 @@ function MicrobeQuestV2() {
   const spriteRef = useRef(null);
   const pendingCarryRef = useRef(null);
   const factorsFoundRef = useRef(new Set());
+  const secretEnterTRef = useRef(0);
+  const isTypingRef = useRef(false);
+  const secretTypeTimerRef = useRef(null);
 
   const [mode, setMode] = useState("title");
   const [muted, setMuted] = useState(false);
@@ -1206,6 +1303,14 @@ function MicrobeQuestV2() {
   const [stats, setStats] = useState({ atp: 0, total: 0, time: 0, worldId: 1 });
   const [transitionTo, setTransitionTo] = useState(2);
   const [secretLine, setSecretLine] = useState(0);
+  const [secretCharCount, setSecretCharCount] = useState(0);
+  const [secretAnswer, setSecretAnswer] = useState(null);
+
+  // Text currently being typed for the active secret-scene step: the line
+  // itself, the question prompt, or — once answered — the feedback text.
+  const secretStep = FIBROBLAST_STEPS[secretLine];
+  const secretFullText = secretStep.question ? (secretAnswer ? secretAnswer.feedback : secretStep.question) : secretStep.text;
+  const secretDoneTyping = secretCharCount >= secretFullText.length;
 
   const setModeBoth = (m) => { modeRef.current = m; setMode(m); };
 
@@ -1267,6 +1372,7 @@ function MicrobeQuestV2() {
       else if (type === "shoot") mk(220, 160, 0.12, "sawtooth", 0.04);
       else if (type === "win") { [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => mk(f, f, 0.18, "triangle", 0.07), i * 110)); }
       else if (type === "lose") mk(220, 70, 0.6, "sawtooth", 0.08);
+      else if (type === "blip") mk(340 + Math.random() * 90, 260, 0.045, "square", 0.035);
     } catch (e) {}
   };
 
@@ -1284,6 +1390,8 @@ function MicrobeQuestV2() {
   // gameplay resumes exactly where it was interrupted.
   const triggerSecretEnding = () => {
     setSecretLine(0);
+    setSecretAnswer(null);
+    secretEnterTRef.current = stateRef.current.t;
     setModeBoth("secret");
   };
 
@@ -1664,7 +1772,7 @@ function MicrobeQuestV2() {
 
     const renderGame = () => {
       s = stateRef.current;
-      if (modeRef.current === "secret") { drawFibroblastScene(gctx, s.t); return; }
+      if (modeRef.current === "secret") { drawFibroblastScene(gctx, s.t, isTypingRef.current, secretEnterTRef.current); return; }
       const { world } = s, p = s.player, cam = s.cam, camY = s.camY || 0;
       const biome = zoneFor(world, cam + VW / 2, camY + VH / 2);
       const zoneIdx = world.biomes.indexOf(biome);
@@ -2108,14 +2216,15 @@ function MicrobeQuestV2() {
     // eslint-disable-next-line
   }, []);
 
-  // Music plays for the whole run (level, world transitions, the secret
-  // scene, win/lose recap) and pauses on any menu screen. play() is only
-  // ever reached via a click/keypress-triggered mode change, so it satisfies
-  // browsers' autoplay-with-sound gesture requirement.
+  // Music plays through the run (level, world transitions, win/lose recap)
+  // and pauses on menu screens *and* the fibroblast secret scene — silence
+  // sets that scene apart. Returning to play resumes it, still respecting
+  // musicMuted, since play() is only ever reached via a click/keypress, which
+  // satisfies browsers' autoplay-with-sound gesture requirement.
   useEffect(() => {
     const music = musicRef.current;
     if (!music) return;
-    const inRun = ["play", "transition", "secret", "win", "lose"].includes(mode);
+    const inRun = ["play", "transition", "win", "lose"].includes(mode);
     if (inRun) music.play().catch(() => {});
     else music.pause();
   }, [mode]);
@@ -2126,6 +2235,44 @@ function MicrobeQuestV2() {
     music.volume = volume;
     music.muted = musicMuted;
   }, [volume, musicMuted]);
+
+  // Typewriter reveal for the fibroblast dialogue. isTypingRef mirrors
+  // whether a line is still being typed so the canvas scene can extend the
+  // character's processes while it "talks" and retract them once it's done.
+  useEffect(() => {
+    if (mode !== "secret") return;
+    clearTimeout(secretTypeTimerRef.current);
+    setSecretCharCount(0);
+    isTypingRef.current = true;
+    const line = secretFullText;
+    let i = 0;
+    const tick = () => {
+      i++;
+      setSecretCharCount(i);
+      if (i % 2 === 0) sound("blip");
+      if (i < line.length) secretTypeTimerRef.current = setTimeout(tick, 28);
+      else isTypingRef.current = false;
+    };
+    secretTypeTimerRef.current = setTimeout(tick, 28);
+    return () => { clearTimeout(secretTypeTimerRef.current); isTypingRef.current = false; };
+    // eslint-disable-next-line
+  }, [mode, secretLine, secretAnswer]);
+
+  const skipSecretTyping = () => {
+    clearTimeout(secretTypeTimerRef.current);
+    setSecretCharCount(secretFullText.length);
+    isTypingRef.current = false;
+  };
+
+  const answerSecretQuestion = (opt) => {
+    sound(opt.correct ? "pickup" : "hurt");
+    setSecretAnswer(opt);
+  };
+
+  const advanceSecretLine = () => {
+    setSecretLine((i) => i + 1);
+    setSecretAnswer(null);
+  };
 
   function roundRect(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
   function wrapText(ctx, text, maxW) {
@@ -2431,20 +2578,40 @@ function MicrobeQuestV2() {
               · somewhere off the map ·
             </div>
             <div style={{
-              width: "min(560px, 100%)", background: "rgba(18,9,10,0.88)",
+              width: "min(600px, 100%)", background: "rgba(18,9,10,0.88)",
               border: "2px solid #f2c9b8", borderRadius: 10, padding: "20px 24px", textAlign: "left",
             }}>
-              <div style={{ fontSize: 13, color: "#ffcbb0" }}>FIBROBLAST</div>
-              <div style={{ fontFamily: "'VT323', monospace", fontSize: 24, marginTop: 12, lineHeight: 1.5, color: "#f6e6d6" }}>
-                {FIBROBLAST_LINES[secretLine]}
+              <div style={{ fontSize: 13, color: "#ffcbb0" }}>{secretStep.question ? "FIBROBLAST ASKS" : "FIBROBLAST"}</div>
+              <div style={{ fontFamily: "'VT323', monospace", fontSize: 24, marginTop: 12, lineHeight: 1.5, color: "#f6e6d6", minHeight: "3em" }}>
+                {secretFullText.slice(0, secretCharCount)}
               </div>
-              <div style={{ marginTop: 16, textAlign: "right" }}>
-                {secretLine < FIBROBLAST_LINES.length - 1 ? (
-                  <button style={{ ...bigBtn, marginTop: 0 }} onClick={() => setSecretLine((i) => i + 1)}>NEXT ▶</button>
-                ) : (
-                  <button style={{ ...bigBtn, marginTop: 0 }} onClick={() => { setModeBoth("play"); playMusic(); }}>RETURN TO SPLEEN</button>
-                )}
-              </div>
+              {secretDoneTyping && secretStep.question && !secretAnswer ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 14 }}>
+                  {secretStep.options.map((opt, i) => (
+                    <button
+                      key={i}
+                      onClick={() => answerSecretQuestion(opt)}
+                      style={{
+                        fontFamily: "'VT323', monospace", fontSize: 19, textAlign: "left", color: "#f4ead0",
+                        background: "rgba(242,201,184,0.08)", border: "1px solid rgba(242,201,184,0.4)",
+                        borderRadius: 6, padding: "8px 14px", cursor: "pointer",
+                      }}
+                    >
+                      {String.fromCharCode(65 + i)}. {opt.label}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ marginTop: 16, textAlign: "right" }}>
+                  {!secretDoneTyping ? (
+                    <button style={{ ...bigBtn, marginTop: 0 }} onClick={skipSecretTyping}>SKIP ▶</button>
+                  ) : secretLine < FIBROBLAST_STEPS.length - 1 ? (
+                    <button style={{ ...bigBtn, marginTop: 0 }} onClick={advanceSecretLine}>NEXT ▶</button>
+                  ) : (
+                    <button style={{ ...bigBtn, marginTop: 0 }} onClick={() => { setModeBoth("play"); playMusic(); }}>RETURN TO SPLEEN</button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}
