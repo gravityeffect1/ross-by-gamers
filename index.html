@@ -12,7 +12,7 @@
   <meta name="theme-color" content="#0a040e" />
   <style>html, body { margin: 0; background: #0a040e; }</style>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%230a040e'/><circle cx='16' cy='16' r='9' fill='%239fe06a'/><circle cx='13' cy='13' r='3' fill='%23c8f0a0'/><circle cx='20' cy='11' r='2' fill='%23c8f0a0'/></svg>" />
-  <!-- CDN load-failure guard: show friendly error if any script fails to fetch -->
+  <!-- Script load-failure guard: show friendly error if a vendored file 404s or is corrupted -->
   <script>
     window.__cdnErr = false;
     window.addEventListener('error', function(e) {
@@ -22,15 +22,18 @@
         document.getElementById('root').innerHTML =
           '<div style="font-family:monospace;color:#e8c0cf;padding:48px;text-align:center;background:#0a040e;min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;box-sizing:border-box">' +
           '<div style="font-size:20px;color:#e8556a;margin-bottom:16px">&#9888; LOADING ERROR</div>' +
-          '<div style="font-size:13px;line-height:2;max-width:440px">A required script could not be loaded from CDN.<br>Check your internet connection and refresh the page.<br><br>' +
+          '<div style="font-size:13px;line-height:2;max-width:440px">A required script failed to load.<br>Try refreshing the page.<br><br>' +
           '<span style="color:rgba(200,180,210,0.5);font-size:11px">' + (e.target.src || '') + '</span></div></div>';
       }
     }, true);
   </script>
-  <!-- React + ReactDOM (production, pinned) + Babel standalone for JSX -->
-  <script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/@babel/standalone@7.26.5/babel.min.js"></script>
+  <!-- React + ReactDOM (production, pinned) + Babel standalone for JSX.
+       Vendored locally (vendor/) rather than fetched from a CDN at runtime,
+       so the game keeps working even if an external CDN is down/blocked;
+       still zero build step, just static files served alongside index.html. -->
+  <script src="vendor/react.production.min.js"></script>
+  <script src="vendor/react-dom.production.min.js"></script>
+  <script src="vendor/babel.min.js"></script>
 </head>
 <body>
   <div id="root"></div>
@@ -1755,6 +1758,56 @@ function loadProgress() {
 }
 function saveProgress(p) {
   try { localStorage.setItem(PROGRESS_KEY, JSON.stringify(p)); } catch (e) {}
+}
+
+/* ---------- CRASH RECOVERY ---------------------------------------------
+   A single uncaught exception anywhere in the game (physics, rendering,
+   a dialogue/quiz state machine, ...) would otherwise unmount the whole
+   React tree and leave a blank white page with no explanation. This
+   catches that at the root and swaps in a recoverable screen instead —
+   styled like the existing CDN-load-failure guard in <head>, since a
+   React error boundary can't reach JSX/styles defined inside the tree
+   it's protecting. Best-run progress lives in localStorage (see
+   loadProgress/saveProgress above), so it survives the crash either way. */
+class GameCrashBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { crashed: false };
+  }
+  static getDerivedStateFromError() {
+    return { crashed: true };
+  }
+  componentDidCatch(error, info) {
+    console.error("Game crashed:", error, info);
+  }
+  render() {
+    if (this.state.crashed) {
+      return (
+        <div style={{
+          fontFamily: "monospace", color: "#e8c0cf", padding: 48, textAlign: "center",
+          background: "#0a040e", minHeight: "100vh", display: "flex", alignItems: "center",
+          justifyContent: "center", flexDirection: "column", boxSizing: "border-box",
+        }}>
+          <div style={{ fontSize: 20, color: "#e8556a", marginBottom: 16 }}>⚠ SOMETHING BROKE</div>
+          <div style={{ fontSize: 13, lineHeight: 2, maxWidth: 440 }}>
+            The game hit an unexpected error and had to stop.<br />
+            Your best-run progress is saved and won't be lost.
+          </div>
+          <button
+            onClick={() => window.location.reload()}
+            style={{
+              marginTop: 20, fontFamily: "monospace", fontSize: 13, color: "#1a1206",
+              background: "linear-gradient(180deg,#ffd34d,#e0a82e)", border: "2px solid #8a6418",
+              borderRadius: 6, padding: "12px 20px", cursor: "pointer",
+            }}
+          >
+            RELOAD
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
 }
 
 function MicrobeQuestV2() {
@@ -3724,7 +3777,7 @@ function MicrobeQuestV2() {
   );
 }
 
-ReactDOM.createRoot(document.getElementById("root")).render(<MicrobeQuestV2 />);
+ReactDOM.createRoot(document.getElementById("root")).render(<GameCrashBoundary><MicrobeQuestV2 /></GameCrashBoundary>);
   </script>
 </body>
 </html>

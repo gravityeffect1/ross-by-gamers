@@ -116,7 +116,7 @@ The game delivers content through three layers that activate without interruptin
 
 | Layer | Tech |
 |-------|------|
-| UI framework | React 18 (CDN, no bundler) |
+| UI framework | React 18 (vendored locally in `vendor/`, no bundler) |
 | Rendering | HTML5 Canvas — 320×180 pixel buffer upscaled 4× nearest-neighbour + 1280×720 text overlay |
 | Audio | Web Audio API — procedural SFX, zero audio files |
 | JSX compilation | Babel standalone 7.26.5 (in-browser) |
