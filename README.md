@@ -127,8 +127,8 @@ The game delivers content through three layers that activate without interruptin
 ##  Roadmap
 
 - [ ] **Chapter III** — Cardiovascular System
-- [ ] **Quiz encounters** — Undertale-style NPC dialogue transitions to full-screen immunology quiz, ATP rewards
-- [ ] **Touch controls** — on-screen D-pad for tablet study sessions
+- [x] **Quiz encounters** — Undertale-style NPC dialogue transitions to full-screen immunology quiz, ATP rewards
+- [x] **Touch controls** — on-screen D-pad for tablet study sessions
 - [ ] **Flashcard export** — per-zone collectible cards, exportable as PDF
 - [x] **localStorage progress** — best completed-run ATP and completion count now persist between sessions
 - [ ] **Bone marrow world** — haematopoietic niches (standalone bonus world)
