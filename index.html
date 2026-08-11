@@ -1734,6 +1734,29 @@ const CREDITS_LINES = [
   { kind: "tiny", text: "© 2026 @gravityeffect1 on GitHub — All rights reserved" },
 ];
 
+/* ---------- SAVED PROGRESS -------------------------------------------
+   A run itself always starts fresh (see world-select copy), but a
+   completed run (reaching the true ending in World 3) is worth
+   remembering across sessions — best ATP haul and how many times the
+   player has finished. Stored as plain JSON in localStorage; every call
+   is wrapped since private-browsing / storage-disabled contexts throw
+   on access, not just on write. */
+const PROGRESS_KEY = "rbg_progress_v1";
+function loadProgress() {
+  try {
+    const raw = localStorage.getItem(PROGRESS_KEY);
+    if (!raw) return { bestAtp: 0, bestTotal: 0, completions: 0, lastAtp: 0, lastPlayedAt: null };
+    const p = JSON.parse(raw);
+    return {
+      bestAtp: p.bestAtp || 0, bestTotal: p.bestTotal || 0, completions: p.completions || 0,
+      lastAtp: p.lastAtp || 0, lastPlayedAt: p.lastPlayedAt || null,
+    };
+  } catch (e) { return { bestAtp: 0, bestTotal: 0, completions: 0, lastAtp: 0, lastPlayedAt: null }; }
+}
+function saveProgress(p) {
+  try { localStorage.setItem(PROGRESS_KEY, JSON.stringify(p)); } catch (e) {}
+}
+
 function MicrobeQuestV2() {
   const gameRef = useRef(null);
   const textRef = useRef(null);
@@ -1761,6 +1784,7 @@ function MicrobeQuestV2() {
   const [musicMuted, setMusicMuted] = useState(false);
   const [volume, setVolume] = useState(1);
   const [stats, setStats] = useState({ atp: 0, total: 0, time: 0, worldId: 1 });
+  const [progress, setProgress] = useState(loadProgress);
   const [transitionTo, setTransitionTo] = useState(2);
   const [secretLine, setSecretLine] = useState(0);
   const [secretCharCount, setSecretCharCount] = useState(0);
@@ -1851,6 +1875,17 @@ function MicrobeQuestV2() {
     const s = stateRef.current;
     setStats({ atp: s.atp, total: s.totalOrbsAll, time: Math.floor(s.frames / 80), worldId: s.worldId });
     sound(m === "win" ? "win" : "lose");
+    if (m === "win") {
+      const next = {
+        bestAtp: Math.max(progress.bestAtp, s.atp),
+        bestTotal: s.totalOrbsAll,
+        completions: progress.completions + 1,
+        lastAtp: s.atp,
+        lastPlayedAt: Date.now(),
+      };
+      setProgress(next);
+      saveProgress(next);
+    }
     // Reaching the true ending (splenic vein) rolls a Terraria-style credits
     // scroll first; "win" itself (with the stats recap) comes after.
     setModeBoth(m === "win" ? "credits" : m);
@@ -3386,6 +3421,11 @@ function MicrobeQuestV2() {
               <button style={ghostBtn} onClick={() => setModeBoth("howtoplay")}>HOW TO PLAY</button>
               <button style={ghostBtn} onClick={() => setModeBoth("options")}>OPTIONS</button>
             </div>
+            {progress.completions > 0 && (
+              <div className="title-line" style={{ fontFamily: "'VT323', monospace", fontSize: 16, color: "rgba(159,224,106,0.75)", marginTop: 14, animationDelay: "0.5s" }}>
+                BEST RUN: {progress.bestAtp} / {progress.bestTotal} ATP · completed {progress.completions}×
+              </div>
+            )}
             {creditsFooter}
           </div>
         )}
@@ -3444,6 +3484,7 @@ function MicrobeQuestV2() {
             <div style={{ fontSize: 24, marginTop: 14, color: "#9fe06a", textShadow: "0 4px 0 #2c5a1c" }}>CHOOSE YOUR JOURNEY</div>
             <div style={{ fontFamily: "'VT323', monospace", fontSize: 18, marginTop: 8, color: "#e8c0cf" }}>
               Play any world, in any order - progress and ATP for that run start fresh.
+              {progress.completions > 0 && <><br />Your best completed run is saved: {progress.bestAtp} / {progress.bestTotal} ATP · completed {progress.completions}×.</>}
             </div>
             <div style={{ display: "flex", gap: 14, flexWrap: "wrap", justifyContent: "center", marginTop: 18 }}>
               {WORLDS.map((w) => (
@@ -3648,6 +3689,9 @@ function MicrobeQuestV2() {
             <div style={{ fontFamily: "'VT323', monospace", fontSize: 20, marginTop: 14, lineHeight: 1.8, color: "#aef0ff" }}>
               ATP gathered: <span style={{ color: "#ffe07a" }}>{stats.atp}</span> / {stats.total}<br />
               Time: <span style={{ color: "#ffe07a" }}>{Math.floor(stats.time / 60) > 0 ? Math.floor(stats.time / 60) + "m " : ""}{stats.time % 60}s</span>
+              {progress.completions > 0 && (
+                <><br />{stats.atp >= progress.bestAtp ? <span style={{ color: "#9fe06a" }}>New best run!</span> : <>Best run: <span style={{ color: "#ffe07a" }}>{progress.bestAtp}</span> / {progress.bestTotal} ATP</>} · completed {progress.completions}×</>
+              )}
             </div>
             <div style={{ fontFamily: "'VT323', monospace", fontSize: 18, marginTop: 10, color: "rgba(200,180,210,0.7)", maxWidth: 440 }}>
               Bloodstream → lymph node → spleen. One pathogen's tour of adaptive immunity.
