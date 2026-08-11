@@ -1,0 +1,11 @@
+{
+  "name": "ross-by-gamers",
+  "private": true,
+  "description": "Dev-only tooling for Histology Made by Gamers. The game itself ships as a single index.html with zero build step and zero runtime dependencies (React/ReactDOM/Babel are vendored in vendor/) — this package.json exists only to run the CI smoke test.",
+  "scripts": {
+    "test:smoke": "node tests/smoke.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.56.1"
+  }
+}

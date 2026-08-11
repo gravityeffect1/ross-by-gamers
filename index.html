@@ -3414,6 +3414,11 @@ function MicrobeQuestV2() {
           100% { transform: translateY(-2200px); }
         }
         .credits-scroll { animation: creditsScroll ${CREDITS_SCROLL_MS - 1500}ms linear forwards; }
+        @media (prefers-reduced-motion: reduce) {
+          .title-line, .title-glow, .soft-blink, .game-bezel, .credits-scroll {
+            animation: none !important;
+          }
+        }
       `}</style>
 
       <div style={{ position: "relative", width: "min(1280px, 99vw)", maxWidth: 1280 }}>
@@ -3464,7 +3469,7 @@ function MicrobeQuestV2() {
             <div className="title-line" style={{ fontSize: 10, color: "rgba(255,211,77,0.72)", letterSpacing: 3, marginTop: 6, animationDelay: "0.08s" }}>
               — CHAPTER II —
             </div>
-            <div className="title-line" style={{ fontSize: 28, color: "#9fe06a", lineHeight: 1.25, marginTop: 16, animation: "titleGlow 3.6s ease-in-out infinite, fadeUp 0.55s 0.16s ease both", animationDelay: "titleGlow 0s, fadeUp 0.16s" }}>
+            <div className="title-line title-glow" style={{ fontSize: 28, color: "#9fe06a", lineHeight: 1.25, marginTop: 16, animation: "titleGlow 3.6s ease-in-out infinite, fadeUp 0.55s 0.16s ease both", animationDelay: "titleGlow 0s, fadeUp 0.16s" }}>
               THE LYMPHATIC<br />SYSTEM
             </div>
             <div className="title-line" style={{ fontFamily: "'VT323', monospace", fontSize: 20, color: "#c8a0be", marginTop: 10, letterSpacing: 1, animationDelay: "0.24s" }}>
@@ -3474,7 +3479,7 @@ function MicrobeQuestV2() {
             <div className="title-line" style={{ animationDelay: "0.36s" }}>
               <button style={bigBtn} onClick={start}>BEGIN INFECTION</button>
             </div>
-            <div style={{ fontFamily: "'VT323', monospace", fontSize: 17, color: "rgba(244,234,208,0.42)", marginTop: 8, animation: "softBlink 1.5s step-end infinite" }}>
+            <div className="soft-blink" style={{ fontFamily: "'VT323', monospace", fontSize: 17, color: "rgba(244,234,208,0.42)", marginTop: 8, animation: "softBlink 1.5s step-end infinite" }}>
               ▶ press any key to start ◀
             </div>
             <div className="title-line" style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center", marginTop: 4, animationDelay: "0.44s" }}>
