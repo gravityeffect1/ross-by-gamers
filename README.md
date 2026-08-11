@@ -130,7 +130,7 @@ The game delivers content through three layers that activate without interruptin
 - [ ] **Quiz encounters** — Undertale-style NPC dialogue transitions to full-screen immunology quiz, ATP rewards
 - [ ] **Touch controls** — on-screen D-pad for tablet study sessions
 - [ ] **Flashcard export** — per-zone collectible cards, exportable as PDF
-- [ ] **localStorage progress** — carry ATP and chapter unlocks between sessions
+- [x] **localStorage progress** — best completed-run ATP and completion count now persist between sessions
 - [ ] **Bone marrow world** — haematopoietic niches (standalone bonus world)
 
 
