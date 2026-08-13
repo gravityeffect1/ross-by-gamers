@@ -3325,13 +3325,13 @@ function MicrobeQuestV2() {
 
   // On-screen touch controls: hold to move/climb, tap (twice) to jump/double-jump
   const dirBtnStyle = {
-    width: 54, height: 54, borderRadius: 12, fontSize: 22, lineHeight: "54px", textAlign: "center",
-    background: "rgba(244,234,208,0.16)", border: "2px solid rgba(244,234,208,0.35)", color: "#f4ead0",
+    width: 50, height: 50, borderRadius: 12, fontSize: 20, lineHeight: "50px", textAlign: "center",
+    background: "rgba(244,234,208,0.13)", border: "2px solid rgba(244,234,208,0.3)", color: "#f4ead0",
     fontFamily: "'Press Start 2P', monospace", cursor: "pointer",
   };
   const jumpBtnStyle = {
-    width: 86, height: 86, borderRadius: "50%", fontSize: 12,
-    background: "rgba(255,211,77,0.22)", border: "2px solid rgba(255,211,77,0.5)", color: "#1a1206",
+    width: 76, height: 76, borderRadius: "50%", fontSize: 11,
+    background: "rgba(255,211,77,0.18)", border: "2px solid rgba(255,211,77,0.42)", color: "#1a1206",
     fontFamily: "'Press Start 2P', monospace", cursor: "pointer", fontWeight: "bold",
   };
   const holdHandlers = (key) => ({
@@ -3442,19 +3442,22 @@ function MicrobeQuestV2() {
               </button>
             </div>
           )}
-        </div>
 
-        {/* on-screen touch controls: D-pad (move + climb) and jump */}
-        {mode === "play" && (
-          <div className="touch-controls" style={{ justifyContent: "space-between", alignItems: "center", marginTop: 12, padding: "0 6px" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "54px 54px 54px", gridTemplateRows: "54px 54px 54px", gap: 5 }}>
-              <div /><DirBtn dir="up" label="↑" /><div />
-              <DirBtn dir="left" label="←" /><div /><DirBtn dir="right" label="→" />
-              <div /><DirBtn dir="down" label="↓" /><div />
+          {/* on-screen touch controls: floating HUD overlay pinned to the bottom
+              corners of the game view itself (D-pad bottom-left, jump bottom-right),
+              semi-transparent like most mobile games' virtual pads — so there's
+              nothing to scroll down for on a phone, the whole game fits in one view. */}
+          {mode === "play" && (
+            <div className="touch-controls" style={{ position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 4, justifyContent: "space-between", alignItems: "flex-end", padding: "0 10px 10px", pointerEvents: "none" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "50px 50px 50px", gridTemplateRows: "50px 50px 50px", gap: 4, pointerEvents: "auto" }}>
+                <div /><DirBtn dir="up" label="↑" /><div />
+                <DirBtn dir="left" label="←" /><div /><DirBtn dir="right" label="→" />
+                <div /><DirBtn dir="down" label="↓" /><div />
+              </div>
+              <button className="touch-btn" style={{ ...jumpBtnStyle, pointerEvents: "auto" }} onPointerDown={(e) => { e.preventDefault(); pressJump(); }}>JUMP</button>
             </div>
-            <button className="touch-btn" style={jumpBtnStyle} onPointerDown={(e) => { e.preventDefault(); pressJump(); }}>JUMP</button>
-          </div>
-        )}
+          )}
+        </div>
 
         {mode === "title" && (
           <div style={{
