@@ -346,6 +346,35 @@ function getFibroSprites() {
   return fibroSprites;
 }
 
+// Interdigitating dendritic cell — World 2's hidden-alcove quiz encounter,
+// same stellate body plan as the reticular cell/fibroblast (dendritic cells
+// are literally named for their tree-like processes) but in a warm gold
+// palette so it pops against the paracortex's violet backdrop the way the
+// mast cell's magenta pops against World 1's pink connective tissue.
+const IDC_PAL = { O: "#6a4a12", b: "#e8b23e", d: "#c4901f", h: "#ffe0a0", e: "#3a2a08", p: "#1c1404", n: "#fff6da" };
+function idcGrid(phase, reach = 1) {
+  const g = buildStellate(24, 20, "b", "d", "h", "O", phase, reach);
+  const cx = 11, cy = 9;
+  setPx(g, cx, cy, "e"); setPx(g, cx + 1, cy, "e"); setPx(g, cx, cy + 1, "e");
+  setPx(g, cx - 1, cy - 1, "n"); setPx(g, cx + 2, cy - 1, "n");
+  return g;
+}
+let idcSceneSprites = null;
+function getIdcSceneSprites() {
+  if (!idcSceneSprites) {
+    idcSceneSprites = {
+      idle: [makeSprite(idcGrid(0, 0.7), IDC_PAL), makeSprite(idcGrid(0.1, 0.74), IDC_PAL)],
+      talk: [
+        makeSprite(idcGrid(-0.22, 1.05), IDC_PAL),
+        makeSprite(idcGrid(-0.08, 1.1), IDC_PAL),
+        makeSprite(idcGrid(0.08, 1.1), IDC_PAL),
+        makeSprite(idcGrid(0.22, 1.05), IDC_PAL),
+      ],
+    };
+  }
+  return idcSceneSprites;
+}
+
 
 function heartPath(ctx, cx, cy, s) {
   ctx.beginPath();
@@ -657,6 +686,89 @@ function drawMastScene(ctx, t, talking, introStartT) {
 
   if (introT < 1) {
     ctx.fillStyle = `rgba(10,4,5,${1 - ease})`;
+    ctx.fillRect(0, 0, VW, VH);
+  }
+}
+// The interdigitating dendritic cell's quiz scene: same staging as
+// drawMastScene, reskinned to the paracortex's violet palette with warm
+// gold light (an HEV afterglow) since this cell's whole job is presenting
+// antigen brought in from the periphery.
+function drawIdcScene(ctx, t, talking, introStartT) {
+  const introT = Math.min(1, Math.max(0, (t - introStartT) / 0.6));
+  const ease = introT * (2 - introT);
+
+  const grad = ctx.createLinearGradient(0, 0, 0, VH);
+  grad.addColorStop(0, "#221238"); grad.addColorStop(1, "#3f2a66");
+  ctx.fillStyle = grad; ctx.fillRect(0, 0, VW, VH);
+
+  ctx.save();
+  try { ctx.filter = "blur(1.6px)"; } catch (e) {}
+  ctx.globalAlpha = 0.12; ctx.strokeStyle = "#ffd98a"; ctx.lineWidth = 3;
+  for (let i = -3; i < 9; i++) {
+    const baseX = i * 42;
+    ctx.beginPath();
+    for (let y = 0; y <= VH; y += 12) {
+      const x = baseX + y * 0.5 + Math.sin(y * 0.05 + t * 0.5 + i) * 6;
+      y === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  ctx.save();
+  ctx.globalAlpha = 0.14; ctx.strokeStyle = "#c9a8ff"; ctx.lineWidth = 2;
+  for (let i = -4; i < 12; i++) {
+    const off = i * 34 + Math.sin(t * 0.4 + i) * 5;
+    ctx.beginPath(); ctx.moveTo(off, 0); ctx.lineTo(off + VH * 0.6, VH); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(VW - off, 0); ctx.lineTo(VW - off - VH * 0.6, VH); ctx.stroke();
+  }
+  ctx.restore();
+
+  for (let i = 0; i < 34; i++) {
+    const x = hash2(i, 71) * VW, y = (hash2(i, 83) * VH + t * 6 + i * 5) % VH;
+    ctx.globalAlpha = 0.25 + 0.2 * Math.sin(t * 2 + i);
+    ctx.fillStyle = "#ffe9c2";
+    ctx.fillRect(Math.round(x), Math.round(y), 1, 1);
+  }
+  ctx.globalAlpha = 1;
+
+  const sprites = getIdcSceneSprites();
+
+  ctx.save();
+  try { ctx.filter = "blur(2px)"; } catch (e) {}
+  ctx.globalAlpha = 0.14;
+  const bg0 = sprites.idle[0];
+  [[52, 126, 2.0, 0], [262, 108, 1.7, 2]].forEach(([bx, by, sc, ph]) => {
+    const bob = Math.sin(t * 0.8 + ph) * 3;
+    ctx.drawImage(bg0.cv, bx - (bg0.w * sc) / 2, by - bg0.h * sc + bob, bg0.w * sc, bg0.h * sc);
+  });
+  ctx.restore();
+
+  const vg = ctx.createRadialGradient(VW / 2, VH / 2 + 6, 10, VW / 2, VH / 2 + 6, VH * 0.75);
+  vg.addColorStop(0, "rgba(255,224,160,0.10)");
+  vg.addColorStop(0.55, "rgba(0,0,0,0)");
+  vg.addColorStop(1, "rgba(0,0,0,0.45)");
+  ctx.fillStyle = vg; ctx.fillRect(0, 0, VW, VH);
+
+  ctx.save();
+  ctx.globalAlpha = 0.35 * ease;
+  ctx.fillStyle = "#150f20";
+  ctx.beginPath(); ctx.ellipse(VW / 2, VH / 2 + 34, 30, 7, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+
+  const frameSet = talking ? sprites.talk : sprites.idle;
+  const cycleSpeed = talking ? 6 : 2;
+  const frame = frameSet[Math.floor(t * cycleSpeed) % frameSet.length];
+  const scale = (5.4 + Math.sin(t * 2) * 0.12) * (0.85 + 0.15 * ease);
+  const dw = frame.w * scale, dh = frame.h * scale;
+  const dx = Math.round(VW / 2 - dw / 2);
+  const dy = Math.round(VH / 2 - dh / 2 + Math.sin(t * 1.3) * 3 + 6);
+  ctx.globalAlpha = ease;
+  ctx.drawImage(frame.cv, dx, dy, dw, dh);
+  ctx.globalAlpha = 1;
+
+  if (introT < 1) {
+    ctx.fillStyle = `rgba(8,5,14,${1 - ease})`;
     ctx.fillRect(0, 0, VW, VH);
   }
 }
@@ -1093,6 +1205,19 @@ function generateWorld2() {
   });
   const trabeculae = new Set(trabeculaCols);
 
+  // hidden alcove for the interdigitating dendritic cell — a narrow gap in
+  // the paracortex floor (cols 93-97, between the platform clusters at
+  // 88-90 and 100-103) dropping to a ledge one row below the surrounding
+  // terrain, same "found by dropping through" idiom as World 1's mast-cell
+  // alcove.
+  const idcAlcoveCols = [93, 94, 95, 96, 97];
+  idcAlcoveCols.forEach((c) => {
+    surfaceRow[c] = null;
+    for (let r = 0; r < ROWS; r++) solid.delete(key(c, r));
+  });
+  const idcAlcoveRow = 10;
+  for (let c = 92; c <= 98; c++) addSolid(c, idcAlcoveRow);
+
   const gy = (c) => (surfaceRow[c] != null ? surfaceRow[c] * TILE : 9 * TILE);
 
   const orbs = [];
@@ -1154,7 +1279,15 @@ function generateWorld2() {
   // hidden collectible \u2014 on the small high platform near col 126, well off the main floor route
   const factors = [{ x: 127 * TILE + 8, y: 4 * TILE - 9, got: false, key: "SOX2" }];
 
- 
+  // Interdigitating dendritic cell, tucked in the hidden paracortex alcove
+  // above \u2014 not a regular dialogue NPC. Reaching it triggers the full quiz
+  // scene (mode "idcquiz"), same one-shot pattern as World 1's mast cell.
+  const idc = {
+    x: 95 * TILE, y: idcAlcoveRow * TILE - 16,
+    label: "Interdigitating DC",
+    triggered: false, armed: true,
+  };
+
   const currents = [
     { c0: 0, c1: 28, force: 0.045, dir: 1 },
     { c0: 149, c1: COLS2, force: 0.07, dir: 1 },
@@ -1162,7 +1295,7 @@ function generateWorld2() {
 
   return {
     worldId: 2, cols: COLS2, biomes: BIOMES2, solid, surfaceRow, platforms, trabeculae,
-    orbs, factors, antigens, fdcs, hevs, enemies, plasmas, antibodies, cytokines, npc, exit, spawn,
+    orbs, factors, antigens, fdcs, hevs, enemies, plasmas, antibodies, cytokines, npc, idc, exit, spawn,
     currents, totalOrbs: orbs.length, zonesSeen: new Array(BIOMES2.length).fill(false),
   };
 }
@@ -1489,6 +1622,64 @@ const MAST_STEPS = [
     ],
   },
   { text: "Not bad, for a pathogen. Here's your ATP - go on, get back to the vessels before a macrophage notices you loitering down here in the stroma." },
+];
+
+// The interdigitating dendritic cell's hidden-alcove encounter in World 2's
+// paracortex — same shape as MAST_STEPS. Content centers on the classic
+// mix-up this game's own CODEX2 sets up: "Follicular DC" (in the follicles,
+// no MHC II, displays intact antigen to B cells) versus this cell, a real
+// professional APC presenting processed antigen via MHC II to T cells.
+const IDC_STEPS = [
+  { text: "Careful. Not everything down here just floats past - I've been watching you since you crossed that HEV." },
+  { text: "I'm an interdigitating dendritic cell. I started out in skin or mucosa as a Langerhans cell, picked up antigen out there, then rode afferent lymph in as a 'veiled cell' to end up here." },
+  { text: "Don't confuse me with my follicular cousin over in the cortex. I'm a real antigen-presenting cell: I process antigen and display it on MHC II. Follicular dendritic cells don't even carry MHC II." },
+  { text: "You've been through this node once already. Let's see if you can actually tell us apart. Get these right and I'll pay out in ATP." },
+  {
+    question: "What's the key functional difference between an interdigitating (paracortical) dendritic cell and a follicular dendritic cell?",
+    options: [
+      { label: "Interdigitating DCs process antigen and present it via MHC II to T cells; FDCs display native antigen-antibody complexes to B cells and lack MHC II", correct: true, feedback: "Exactly. One's a T-cell APC, the other's a B-cell antigen depot - easy to conflate by name alone." },
+      { label: "They're the same cell, just in different zones of the node", correct: false, feedback: "Different lineages entirely, despite the similar name - that's the whole trap." },
+      { label: "FDCs present antigen via MHC I; interdigitating DCs don't process antigen at all", correct: false, feedback: "Backwards on both counts - FDCs don't process antigen or express MHC, interdigitating DCs are the ones doing MHC II presentation." },
+      { label: "Interdigitating DCs only work in the spleen, not lymph nodes", correct: false, feedback: "I'm standing right here in the lymph node paracortex - dendritic cells do plenty of work in the spleen's white pulp too, but that's not what sets us apart from FDCs." },
+    ],
+  },
+  {
+    question: "Where do interdigitating dendritic cells originate before reaching the paracortex?",
+    options: [
+      { label: "Bone marrow, straight into blood, no detour through peripheral tissue", correct: false, feedback: "Not quite - the defining trip is through peripheral tissue first, not straight out of the marrow." },
+      { label: "Skin and mucosal epithelium (as Langerhans cells), migrating in via afferent lymph", correct: true, feedback: "Right. Langerhans cells in the epidermis pick up antigen, then travel as 'veiled cells' through afferent lymph to become interdigitating DCs here." },
+      { label: "The germinal center light zone", correct: false, feedback: "That's B-cell and FDC territory during affinity maturation - not where I come from." },
+      { label: "Efferent lymph, migrating backward into the node", correct: false, feedback: "Lymph only flows one way through a node - afferent in, efferent out. I arrived on the afferent side." },
+    ],
+  },
+  {
+    question: "Besides MHC II presenting antigen to a T-cell receptor, what second signal does a dendritic cell need to give a naive T cell to fully activate it?",
+    options: [
+      { label: "A costimulatory signal - e.g. B7 (CD80/86) on the DC binding CD28 on the T cell", correct: true, feedback: "Correct. Signal 1 (TCR-MHC-peptide) without signal 2 (costimulation) doesn't activate the T cell - that safety check is how the immune system avoids firing on self antigen alone." },
+      { label: "A second, different MHC II molecule", correct: false, feedback: "One MHC-peptide complex plus costimulation is the standard model - not a second MHC II." },
+      { label: "Complement fixation", correct: false, feedback: "That's an antibody/complement pathway story, not what a dendritic cell hands a T cell." },
+      { label: "IgE cross-linking", correct: false, feedback: "That's a mast cell degranulation trigger, not T-cell priming." },
+    ],
+  },
+  {
+    question: "A naive T cell gets signal 1 (TCR-MHC-peptide) with no costimulatory signal 2 at all. What happens?",
+    options: [
+      { label: "Full activation anyway - signal 1 is enough on its own", correct: false, feedback: "Without costimulation, a naive T cell doesn't fully activate - that's the entire point of requiring two signals." },
+      { label: "Anergy - the T cell becomes functionally unresponsive", correct: true, feedback: "Correct. Signal 1 alone is a built-in safety check against reacting to self antigen presented without any danger signal." },
+      { label: "The antigen-presenting cell undergoes apoptosis", correct: false, feedback: "It's the T cell's responsiveness that's affected here, not the APC's survival." },
+      { label: "The T cell class-switches to secreting IgE", correct: false, feedback: "Class switching is a B-cell/plasma-cell antibody story, unrelated to T-cell costimulation." },
+    ],
+  },
+  {
+    question: "Which of these are the classic 'professional' antigen-presenting cells, capable of activating a naive T cell?",
+    options: [
+      { label: "Dendritic cells, macrophages, and B cells", correct: true, feedback: "Correct - the three classic professional APCs, all expressing MHC II plus costimulatory molecules." },
+      { label: "Neutrophils, mast cells, and eosinophils", correct: false, feedback: "Those are granulocytes built for innate effector work, not the professional-APC trio." },
+      { label: "Red blood cells and platelets", correct: false, feedback: "RBCs are anucleate and platelets aren't antigen-presenting cells at all." },
+      { label: "Only dendritic cells - macrophages and B cells can't present antigen", correct: false, feedback: "Macrophages and B cells are professional APCs too, right alongside dendritic cells." },
+    ],
+  },
+  { text: "Good enough. Go on - the medulla's ahead, and the efferent vessel beyond that. Try not to get phagocytosed on the way." },
 ];
 
 
@@ -1839,6 +2030,9 @@ function MicrobeQuestV2() {
   const mastEnterTRef = useRef(0);
   const isTypingMastRef = useRef(false);
   const mastTypeTimerRef = useRef(null);
+  const idcEnterTRef = useRef(0);
+  const isTypingIdcRef = useRef(false);
+  const idcTypeTimerRef = useRef(null);
 
   const [mode, setMode] = useState("title");
   const [muted, setMuted] = useState(false);
@@ -1854,6 +2048,10 @@ function MicrobeQuestV2() {
   const [mastCharCount, setMastCharCount] = useState(0);
   const [mastAnswer, setMastAnswer] = useState(null);
   const [mastAtpEarned, setMastAtpEarned] = useState(0);
+  const [idcLine, setIdcLine] = useState(0);
+  const [idcCharCount, setIdcCharCount] = useState(0);
+  const [idcAnswer, setIdcAnswer] = useState(null);
+  const [idcAtpEarned, setIdcAtpEarned] = useState(0);
 
   // Text currently being typed for the active secret-scene step: the line
   // itself, the question prompt, or — once answered — the feedback text.
@@ -1865,6 +2063,11 @@ function MicrobeQuestV2() {
   const mastStep = MAST_STEPS[mastLine];
   const mastFullText = mastStep.question ? (mastAnswer ? mastAnswer.feedback : mastStep.question) : mastStep.text;
   const mastDoneTyping = mastCharCount >= mastFullText.length;
+
+  // Same shape again, for the interdigitating dendritic cell's quiz scene.
+  const idcStep = IDC_STEPS[idcLine];
+  const idcFullText = idcStep.question ? (idcAnswer ? idcAnswer.feedback : idcStep.question) : idcStep.text;
+  const idcDoneTyping = idcCharCount >= idcFullText.length;
 
   const setModeBoth = (m) => { modeRef.current = m; setMode(m); };
 
@@ -1882,6 +2085,7 @@ function MicrobeQuestV2() {
       rpmac: makeSprite(rpMacGrid(), RPMAC_PAL),
       cancer: makeSprite(cancerGrid(), CANCER_PAL),
       mast: makeSprite(mastGrid(), MAST_PAL),
+      idc: makeSprite(idcGrid(0, 0.7), IDC_PAL),
     };
   }
 
@@ -1971,6 +2175,15 @@ function MicrobeQuestV2() {
     setMastAtpEarned(0);
     mastEnterTRef.current = stateRef.current.t;
     setModeBoth("mastquiz");
+  };
+
+  // Same pattern again, for the interdigitating dendritic cell's hidden-alcove quiz.
+  const triggerIdcQuiz = () => {
+    setIdcLine(0);
+    setIdcAnswer(null);
+    setIdcAtpEarned(0);
+    idcEnterTRef.current = stateRef.current.t;
+    setModeBoth("idcquiz");
   };
 
   const enterTransition = (next) => {
@@ -2293,6 +2506,17 @@ function MicrobeQuestV2() {
           world.zonesSeen[zi] = true;
           s.banner = ZONE_FACTS2[zi]; s.bannerT = 420;
         }
+        // interdigitating dendritic cell — hidden-alcove quiz encounter,
+        // same "armed" latch idiom as World 1's mast cell so it can't
+        // instantly re-trigger the moment the scene ends.
+        const idcNpc = world.idc;
+        s.objective = idcNpc.triggered ? null : { x: idcNpc.x + 9, y: idcNpc.y - 4, label: "Interdigitating DC — ATP quiz" };
+        const nearIdc = Math.abs((idcNpc.x + 9) - (p.x + p.w / 2)) < 14 && Math.abs(idcNpc.y - p.y) < 16;
+        if (nearIdc) {
+          if (!idcNpc.triggered && idcNpc.armed) { idcNpc.armed = false; idcNpc.triggered = true; triggerIdcQuiz(); }
+        } else {
+          idcNpc.armed = true;
+        }
       }
       if (s.worldId === 3) {
         for (const rbc of world.rbcs) {
@@ -2569,6 +2793,7 @@ function MicrobeQuestV2() {
       s = stateRef.current;
       if (modeRef.current === "secret") { drawFibroblastScene(gctx, s.t, isTypingRef.current, secretEnterTRef.current); return; }
       if (modeRef.current === "mastquiz") { drawMastScene(gctx, s.t, isTypingMastRef.current, mastEnterTRef.current); return; }
+      if (modeRef.current === "idcquiz") { drawIdcScene(gctx, s.t, isTypingIdcRef.current, idcEnterTRef.current); return; }
       const { world } = s, p = s.player, cam = s.cam, camY = s.camY || 0;
       const biome = zoneFor(world, cam + VW / 2, camY + VH / 2);
       const zoneIdx = world.biomes.indexOf(biome);
@@ -2651,6 +2876,15 @@ function MicrobeQuestV2() {
           const bob = Math.round(Math.sin(s.t * 2 + world.mast.x * 0.02) * 1);
           drawGlow(gctx, mx + 9, my + 8 + bob, 14, "rgba(255,110,200,0.4)", 0.4);
           drawSprite(gctx, SPR.mast, mx, my + bob, false);
+        }
+      }
+
+      if (s.worldId === 2 && !world.idc.triggered) {
+        const dx = world.idc.x - cam, dy = world.idc.y - camY;
+        if (dx > -20 && dx < VW + 20) {
+          const bob = Math.round(Math.sin(s.t * 2 + world.idc.x * 0.02) * 1);
+          drawGlow(gctx, dx + 9, dy + 8 + bob, 14, "rgba(232,178,62,0.4)", 0.4);
+          drawSprite(gctx, SPR.idc, dx, dy + bob, false);
         }
       }
 
@@ -2864,7 +3098,7 @@ function MicrobeQuestV2() {
     const renderText = () => {
       s = stateRef.current;
       tctx.clearRect(0, 0, TW, TH);
-      if (modeRef.current === "secret" || modeRef.current === "mastquiz") return;
+      if (modeRef.current === "secret" || modeRef.current === "mastquiz" || modeRef.current === "idcquiz") return;
       const { world } = s, p = s.player, cam = s.cam, camY = s.camY || 0;
       const wx = (x) => (x - cam) * S, wy = (y) => (y - camY) * S;
 
@@ -2891,6 +3125,9 @@ function MicrobeQuestV2() {
         for (const f of world.fdcs) labelFor(f, "Follicular DC", f.y - 14);
         for (const pl of world.plasmas) labelFor(pl, "Plasma Cell", pl.y - 14);
         for (const hev of world.hevs) labelFor({ x: hev.x + 4, type: "" }, "HEV", hev.yTop - 4);
+        if (!world.idc.triggered) {
+          labelFor({ x: world.idc.x, y: world.idc.y, type: "" }, "Interdigitating DC", world.idc.y - 4);
+        }
       }
       if (s.worldId === 3) {
         const g = world.gate;
@@ -3279,6 +3516,46 @@ function MicrobeQuestV2() {
   const advanceMastLine = () => {
     setMastLine((i) => i + 1);
     setMastAnswer(null);
+  };
+
+  // Same typewriter pattern again, for the interdigitating dendritic cell's quiz scene.
+  useEffect(() => {
+    if (mode !== "idcquiz") return;
+    clearTimeout(idcTypeTimerRef.current);
+    setIdcCharCount(0);
+    isTypingIdcRef.current = true;
+    const line = idcFullText;
+    let i = 0;
+    const tick = () => {
+      i++;
+      setIdcCharCount(i);
+      if (i % 2 === 0) sound("blip");
+      if (i < line.length) idcTypeTimerRef.current = setTimeout(tick, 28);
+      else isTypingIdcRef.current = false;
+    };
+    idcTypeTimerRef.current = setTimeout(tick, 28);
+    return () => { clearTimeout(idcTypeTimerRef.current); isTypingIdcRef.current = false; };
+    // eslint-disable-next-line
+  }, [mode, idcLine, idcAnswer]);
+
+  const skipIdcTyping = () => {
+    clearTimeout(idcTypeTimerRef.current);
+    setIdcCharCount(idcFullText.length);
+    isTypingIdcRef.current = false;
+  };
+
+  const answerIdcQuestion = (opt) => {
+    sound(opt.correct ? "pickup" : "hurt");
+    if (opt.correct) {
+      stateRef.current.atp += 5;
+      setIdcAtpEarned((n) => n + 5);
+    }
+    setIdcAnswer(opt);
+  };
+
+  const advanceIdcLine = () => {
+    setIdcLine((i) => i + 1);
+    setIdcAnswer(null);
   };
 
   function roundRect(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
@@ -3702,6 +3979,58 @@ function MicrobeQuestV2() {
                     <button style={{ ...bigBtn, marginTop: 0 }} onClick={advanceMastLine}>NEXT ▶</button>
                   ) : (
                     <button style={{ ...bigBtn, marginTop: 0 }} onClick={() => { setModeBoth("play"); playMusic(); }}>RETURN TO THE TISSUE</button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+        {mode === "idcquiz" && (
+          <div style={{
+            position: "absolute", inset: 0, display: "flex", flexDirection: "column",
+            alignItems: "center", justifyContent: "flex-end", textAlign: "center",
+            fontFamily: "'Press Start 2P', monospace", color: "#f4ead0", padding: 20,
+          }}>
+            <div style={{ position: "absolute", top: 18, fontSize: 10, color: "#e8b23e", letterSpacing: 3, textShadow: "0 2px 0 #241638" }}>
+              · deep in the paracortex ·
+            </div>
+            {idcAtpEarned > 0 && (
+              <div style={{ position: "absolute", top: 44, fontSize: 11, color: "#ffe07a", textShadow: "0 2px 0 #6e4f12" }}>
+                +{idcAtpEarned} ATP earned
+              </div>
+            )}
+            <div style={{
+              width: "min(600px, 100%)", background: "rgba(16,10,22,0.88)",
+              border: "2px solid #e8b23e", borderRadius: 10, padding: "20px 24px", textAlign: "left",
+            }}>
+              <div style={{ fontSize: 13, color: "#ffd98a" }}>{idcStep.question ? "INTERDIGITATING DC ASKS" : "INTERDIGITATING DC"}</div>
+              <div style={{ fontFamily: "'VT323', monospace", fontSize: 24, marginTop: 12, lineHeight: 1.5, color: "#f6ecd6", minHeight: "3em" }}>
+                {idcFullText.slice(0, idcCharCount)}
+              </div>
+              {idcDoneTyping && idcStep.question && !idcAnswer ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 14 }}>
+                  {idcStep.options.map((opt, i) => (
+                    <button
+                      key={i}
+                      onClick={() => answerIdcQuestion(opt)}
+                      style={{
+                        fontFamily: "'VT323', monospace", fontSize: 19, textAlign: "left", color: "#f4ead0",
+                        background: "rgba(232,178,62,0.08)", border: "1px solid rgba(232,178,62,0.4)",
+                        borderRadius: 6, padding: "8px 14px", cursor: "pointer",
+                      }}
+                    >
+                      {String.fromCharCode(65 + i)}. {opt.label}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ marginTop: 16, textAlign: "right" }}>
+                  {!idcDoneTyping ? (
+                    <button style={{ ...bigBtn, marginTop: 0 }} onClick={skipIdcTyping}>SKIP ▶</button>
+                  ) : idcLine < IDC_STEPS.length - 1 ? (
+                    <button style={{ ...bigBtn, marginTop: 0 }} onClick={advanceIdcLine}>NEXT ▶</button>
+                  ) : (
+                    <button style={{ ...bigBtn, marginTop: 0 }} onClick={() => { setModeBoth("play"); playMusic(); }}>RETURN TO THE PARACORTEX</button>
                   )}
                 </div>
               )}
