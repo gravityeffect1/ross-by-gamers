@@ -16,4 +16,10 @@ jobs:
           node-version: 20
       - run: npm ci
       - run: npx playwright install --with-deps chromium
+      # the dev version (index.html + in-browser Babel)
       - run: npm run test:smoke
+      # the precompiled itch.io build, so a release can't ship broken
+      - run: npm run build
+      - run: npm run test:smoke
+        env:
+          SMOKE_ROOT: dist

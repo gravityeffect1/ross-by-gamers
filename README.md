@@ -2,17 +2,17 @@
 
 ![Gameplay](assets/ss2.png)
 
-### *An interactive pixel companion to Ross Histology*
+### *Histology Made by Gamers — a pixel platformer built alongside Ross Histology (7th ed.)*
 
 > Play through the microanatomy. Earn ATP. Pass your exam.
 
-[![Status](https://img.shields.io/badge/status-active%20development-9fe06a?style=flat-square)](https://github.com/gravityeffect1/ross-by-gamers)
-[![Chapter](https://img.shields.io/badge/current%20chapter-II%20%E2%80%94%20Lymphatic%20System-c6a6f2?style=flat-square)](https://github.com/gravityeffect1/ross-by-gamers)
+[![Status](https://img.shields.io/badge/status-active%20development-9fe06a?style=flat-square)](https://gravityeffect1.itch.io/histology-made-by-gamers)
+[![Chapter](https://img.shields.io/badge/current%20chapter-II%20%E2%80%94%20Lymphatic%20System-c6a6f2?style=flat-square)](https://gravityeffect1.itch.io/histology-made-by-gamers)
 [![Built with](https://img.shields.io/badge/built%20with-React%2018%20%2B%20Canvas-61dafb?style=flat-square&logo=react)](https://react.dev)
-[![No install](https://img.shields.io/badge/no%20install-open%20%26%20play-ffd34d?style=flat-square)](https://gravityeffect1.github.io/ross-by-gamers)
-[![Source](https://img.shields.io/badge/based%20on-Ross%20%26%20Pawlina%207th%20ed.-e8556a?style=flat-square)](https://github.com/gravityeffect1/ross-by-gamers)
+[![No install](https://img.shields.io/badge/no%20install-play%20in%20browser-ffd34d?style=flat-square)](https://gravityeffect1.itch.io/histology-made-by-gamers)
+[![Source](https://img.shields.io/badge/based%20on-Ross%20%26%20Pawlina%207th%20ed.-e8556a?style=flat-square)](https://gravityeffect1.itch.io/histology-made-by-gamers)
 
-**[▶ Play Now](https://gravityeffect1.github.io/ross-by-gamers)**
+**[▶ Play Now on itch.io](https://gravityeffect1.itch.io/histology-made-by-gamers)**
 
 </div>
 
@@ -121,8 +121,13 @@ The game delivers content through three layers that activate without interruptin
 | UI framework | React 18 (vendored locally in `vendor/`, no bundler) |
 | Rendering | HTML5 Canvas — 320×180 pixel buffer upscaled 4× nearest-neighbour + 1280×720 text overlay |
 | Audio | Web Audio API procedural SFX + one looping soundtrack (`assets/ost-ubiquitin.mp3`) |
-| JSX compilation | Babel standalone 7.26.5 (in-browser) |
-| Distribution | Static files — `index.html` + `vendor/` + `assets/`, zero build step |
+| JSX compilation | Dev: Babel standalone 7.26.5 in-browser (open `index.html` directly, no build). Release: precompiled + minified with esbuild |
+| Distribution | itch.io HTML5 upload built by `npm run build` into `dist/`, pushed by CI with butler |
+
+##  Releasing to itch.io
+
+1. `npm ci && npm run build` → `dist/` holds the upload (`index.html`, `game.js`, React, the soundtrack; no Babel).
+2. Every push to `main` builds `dist/`, smoke-tests it, and pushes it to itch.io with [butler](https://itch.io/docs/butler/) — once the `BUTLER_API_KEY` repo secret is set. Each CI run also saves the build as a downloadable `itch-html5` artifact, for a manual upload.
 
 ---
 
@@ -146,7 +151,7 @@ The game delivers content through three layers that activate without interruptin
 
 ##  License
 
-Free to play at [gravityeffect1.github.io/ross-by-gamers](https://gravityeffect1.github.io/ross-by-gamers). The source is public to read, but **all rights are reserved**: you may not copy, modify, redistribute, or rehost the code, art, music, or written content without written permission. See [`LICENSE`](LICENSE). Bundled third-party libraries keep their own licenses; see [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
+Free to play at [gravityeffect1.itch.io/histology-made-by-gamers](https://gravityeffect1.itch.io/histology-made-by-gamers). **All rights are reserved**: you may not copy, modify, redistribute, or rehost the code, art, music, or written content without written permission. See [`LICENSE`](LICENSE). Bundled third-party libraries keep their own licenses; see [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
 ---
 

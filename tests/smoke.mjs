@@ -10,7 +10,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", process.env.SMOKE_ROOT || ".");
 
 const MIME = {
   ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript",
