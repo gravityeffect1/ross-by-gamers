@@ -1,0 +1,43 @@
+name: Deploy to itch.io
+
+# Every push to main builds the precompiled game into dist/, smoke-tests it,
+# and pushes it to the itch.io page's "html5" channel with butler.
+# Setup (once): add a BUTLER_API_KEY repo secret (itch.io → Settings → API
+# keys). Until it exists the push step is skipped, but the build is still
+# saved as the "itch-html5" artifact for a manual upload.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: itch-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+      ITCH_TARGET: ${{ vars.ITCH_TARGET || 'gravityeffect1/histology-made-by-gamers' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:smoke
+        env:
+          SMOKE_ROOT: dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: itch-html5
+          path: dist/
+      - name: Push to itch.io
+        if: env.BUTLER_API_KEY != ''
+        run: |
+          curl -sSL -o butler.zip https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default
+          unzip -q butler.zip -d butler && chmod +x butler/butler
+          ./butler/butler push dist "$ITCH_TARGET:html5" --userversion "${GITHUB_SHA::7}"

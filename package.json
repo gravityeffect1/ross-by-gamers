@@ -1,11 +1,14 @@
 {
-  "name": "ross-by-gamers",
+  "name": "histology-by-gamers",
   "private": true,
-  "description": "Dev-only tooling for Histology Made by Gamers. The game itself ships as a single index.html with zero build step and zero runtime dependencies (React/ReactDOM/Babel are vendored in vendor/) — this package.json exists only to run the CI smoke test.",
+  "license": "UNLICENSED",
+  "description": "Dev tooling for Histology Made by Gamers. index.html runs as-is with no build (React/ReactDOM/Babel vendored in vendor/); `npm run build` precompiles it into dist/ for the itch.io upload, and `npm run test:smoke` boots the game in Chromium.",
   "scripts": {
+    "build": "node scripts/build-itch.mjs",
     "test:smoke": "node tests/smoke.mjs"
   },
   "devDependencies": {
+    "esbuild": "0.25.10",
     "playwright": "1.56.1"
   }
 }

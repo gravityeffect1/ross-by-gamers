@@ -1,21 +1,16 @@
-MIT License
+Copyright (c) 2026 Sara Sovix (@gravityeffect1). All rights reserved.
 
-Copyright (c) 2026 sarasovix
+"Histology Made by Gamers" is offered free of charge to play in a web browser
+at https://gravityeffect1.itch.io/histology-made-by-gamers.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+The source code, artwork, sprites, music, and written educational content in
+this repository are made publicly viewable for reference only. No license is
+granted to copy, modify, merge, publish, distribute, sublicense, sell, host,
+mirror, or create derivative works from any part of this repository, in whole
+or in part, without prior written permission from the copyright holder.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+Third-party components bundled in vendor/ are not covered by this notice and
+remain under their own licenses; see THIRD_PARTY_NOTICES.md.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+Earlier versions of this repository published before this notice were
+distributed under the MIT License; that grant applies only to those versions.
