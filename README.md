@@ -1,3 +1,5 @@
+<div align="center">
+
 ![Gameplay](assets/ss2.png)
 
 ### *An interactive pixel companion to Ross Histology*
@@ -82,7 +84,7 @@ Developed by a medical student, for medical students.
 | Double-jump | `Space` × 2 mid-air |
 | Climb shaft | `↑` `↓` or `W` `S` on a ladder |
 | Advance NPC dialogue | `E` / `Enter` / `Z` |
-| Pause | `Escape` |
+| Pause / resume | `Escape` (or the PAUSE button above the game) |
 
 
 ---
@@ -118,9 +120,9 @@ The game delivers content through three layers that activate without interruptin
 |-------|------|
 | UI framework | React 18 (vendored locally in `vendor/`, no bundler) |
 | Rendering | HTML5 Canvas — 320×180 pixel buffer upscaled 4× nearest-neighbour + 1280×720 text overlay |
-| Audio | Web Audio API — procedural SFX, zero audio files |
+| Audio | Web Audio API procedural SFX + one looping soundtrack (`assets/ost-ubiquitin.mp3`) |
 | JSX compilation | Babel standalone 7.26.5 (in-browser) |
-| Distribution | Single `index.html` — zero dependencies, zero build step |
+| Distribution | Static files — `index.html` + `vendor/` + `assets/`, zero build step |
 
 ---
 

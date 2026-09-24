@@ -56,6 +56,23 @@ try {
     ok = false;
     console.error("FAIL: title screen did not render 'BEGIN INFECTION'");
   }
+
+  // Run each world for a couple of seconds (holding right + jumping) so a
+  // throw in the physics/render loop of any level shows up as a pageerror,
+  // then check pause/resume round-trips instead of dumping the run.
+  for (let w = 0; w < 3; w++) {
+    await page.goto(`http://127.0.0.1:${port}/index.html`, { waitUntil: "load", timeout: 20000 });
+    await page.getByRole("button", { name: "SELECT WORLD" }).click();
+    await page.getByRole("button", { name: "PLAY", exact: true }).nth(w).click();
+    await page.keyboard.down("ArrowRight");
+    for (let i = 0; i < 6; i++) { await page.keyboard.press("Space"); await page.waitForTimeout(300); }
+    await page.keyboard.up("ArrowRight");
+    await page.keyboard.press("Escape");
+    await page.waitForSelector("text=RESUME", { timeout: 3000 });
+    await page.keyboard.press("Escape");
+    await page.waitForSelector("text=RESUME", { state: "detached", timeout: 3000 });
+    await page.waitForTimeout(300);
+  }
 } catch (e) {
   ok = false;
   console.error("FAIL: page did not reach the title screen:", e.message);
@@ -70,7 +87,7 @@ await browser.close();
 server.close();
 
 if (ok) {
-  console.log("OK: title screen rendered with no console/page errors.");
+  console.log("OK: title screen, all three worlds, and pause/resume ran with no console/page errors.");
   process.exit(0);
 } else {
   process.exit(1);
