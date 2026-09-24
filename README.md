@@ -10,7 +10,7 @@
 [![Chapter](https://img.shields.io/badge/current%20chapter-II%20%E2%80%94%20Lymphatic%20System-c6a6f2?style=flat-square)](https://github.com/gravityeffect1/ross-by-gamers)
 [![Built with](https://img.shields.io/badge/built%20with-React%2018%20%2B%20Canvas-61dafb?style=flat-square&logo=react)](https://react.dev)
 [![No install](https://img.shields.io/badge/no%20install-open%20%26%20play-ffd34d?style=flat-square)](https://gravityeffect1.github.io/ross-by-gamers)
-[![Source](https://img.shields.io/badge/based%20on-Ross%20%26%20Pawlina%208th%20ed.-e8556a?style=flat-square)](https://github.com/gravityeffect1/ross-by-gamers)
+[![Source](https://img.shields.io/badge/based%20on-Ross%20%26%20Pawlina%207th%20ed.-e8556a?style=flat-square)](https://github.com/gravityeffect1/ross-by-gamers)
 
 **[▶ Play Now](https://gravityeffect1.github.io/ross-by-gamers)**
 
@@ -139,8 +139,14 @@ The game delivers content through three layers that activate without interruptin
 
 ##  Source material
 
-> Ross & Pawlina — *Histology: A Text and Atlas with Correlated Cell and Molecular Biology*, 8th edition.
-> Zone boundaries, compartment naming, cell-type facts, and architectural descriptions are adapted directly from the relevant chapters.
+> Ross & Pawlina — *Histology: A Text and Atlas with Correlated Cell and Molecular Biology*, 7th edition.
+> Zone boundaries, compartment naming, cell-type facts, and architectural descriptions are paraphrased from the relevant chapters; no text or figures from the book are reproduced.
+
+*Histology Made by Gamers* is an independent, free study companion. It is not affiliated with, sponsored by, or endorsed by the authors or publisher of *Ross Histology*.
+
+##  License
+
+Free to play at [gravityeffect1.github.io/ross-by-gamers](https://gravityeffect1.github.io/ross-by-gamers). The source is public to read, but **all rights are reserved**: you may not copy, modify, redistribute, or rehost the code, art, music, or written content without written permission. See [`LICENSE`](LICENSE). Bundled third-party libraries keep their own licenses; see [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
 ---
 
