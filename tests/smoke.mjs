@@ -45,7 +45,13 @@ const page = await browser.newPage();
 const errors = [];
 page.on("pageerror", (e) => errors.push(`pageerror: ${e.message}`));
 page.on("console", (msg) => { if (msg.type() === "error") errors.push(`console: ${msg.text()}`); });
-page.on("requestfailed", (req) => errors.push(`requestfailed: ${req.url()} (${req.failure()?.errorText})`));
+page.on("response", (res) => { if (res.status() >= 400) errors.push(`http ${res.status()}: ${res.url()}`); });
+page.on("requestfailed", (req) => {
+  // ERR_ABORTED is the browser cancelling in-flight requests (music, fonts)
+  // when the test navigates to the next world, not a failed load
+  const why = req.failure()?.errorText;
+  if (why !== "net::ERR_ABORTED") errors.push(`requestfailed: ${req.url()} (${why})`);
+});
 
 let ok = true;
 try {
